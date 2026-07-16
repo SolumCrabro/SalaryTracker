@@ -10,13 +10,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.salarytracker.data.AppDatabase
+import com.example.salarytracker.data.AppSettings
 import com.example.salarytracker.data.SalaryConfig
 import com.example.salarytracker.data.Transaction
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -29,36 +27,44 @@ data class MonthSummary(
     val totalPaid: Double,
     val debt: Double,
     val isCurrentMonth: Boolean,
-    val dbKey: String // Ключ для связи с БД
+    val dbKey: String
 )
 
 class SalaryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val transactionDao = AppDatabase.getDatabase(application).transactionDao()
+    private val appSettings = AppSettings(application)
+
+    val isFirstRun = appSettings.isFirstRun.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    private val defaultSalary = appSettings.defaultSalary
+    private val startMonthOffset = appSettings.startMonthOffset
 
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Получаем поток кастомных зарплат
     private val allSalaryConfigs = transactionDao.getAllSalaryConfigs()
 
-    // Объединяем транзакции и зарплаты в один расчетный поток
+    // Объединяем транзакции, кастомные конфиги зп и глобальные настройки пользователя
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
         allTransactions,
-        allSalaryConfigs
-    ) { transactions, configs ->
+        allSalaryConfigs,
+        defaultSalary,
+        startMonthOffset
+    ) { transactions, configs, defSalary, offset ->
         val now = LocalDate.now()
-        val monthsToDisplay = (0..3).map { now.minusMonths(it.toLong()) }
 
-        // Превращаем список конфигов в удобную Map [КЛЮЧ -> ЗАРПЛАТА]
+        // Показываем месяцы от текущего назад до выбранного стартового (минимум текущий месяц)
+        val monthsCount = if (offset < 0) 0 else offset
+        val monthsToDisplay = (0..monthsCount).map { now.minusMonths(it.toLong()) }
+
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
 
         monthsToDisplay.map { targetDate ->
-            val monthNameEng = targetDate.month.name // Для стабильного ключа в БД
+            val monthNameEng = targetDate.month.name
             val dbKey = "${monthNameEng}_${targetDate.year}"
 
-            // Если в БД есть кастомная зарплата — берем ее, иначе дефолтные 75000
-            val planSalary = configsMap[dbKey] ?: 75000.0
+            // Если для месяца нет кастомной зп — берем базовую зп пользователя
+            val planSalary = configsMap[dbKey] ?: defSalary
 
             val filteredTrans = transactions.filter {
                 it.date.month == targetDate.month && it.date.year == targetDate.year
@@ -78,14 +84,18 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addTransaction(amount: Double, date: LocalDate) {
+    fun completeOnboarding(salary: Double, monthOffset: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            val newTransaction = Transaction(amount = amount, date = date)
-            transactionDao.insertTransaction(newTransaction)
+            appSettings.saveInitialSettings(salary, monthOffset)
         }
     }
 
-    // НОВЫЙ МЕТОД: Обновление зарплаты для конкретного месяца
+    fun addTransaction(amount: Double, date: LocalDate) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionDao.insertTransaction(Transaction(amount = amount, date = date))
+        }
+    }
+
     fun updateSalaryForMonth(dbKey: String, newSalary: Double) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.insertSalaryConfig(SalaryConfig(dbKey, newSalary))

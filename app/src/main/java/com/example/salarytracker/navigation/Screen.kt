@@ -10,4 +10,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Home : Screen("home", "Главная", Icons.Default.Home)
     object Add : Screen("add", "Внесение", Icons.Default.AddCircle)
     object List : Screen("list", "Список", Icons.Default.List)
+
+    object Welcome : Screen("welcome", "Регистрация", Icons.Default.Home)
 }

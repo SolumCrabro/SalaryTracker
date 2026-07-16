@@ -10,54 +10,60 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.salarytracker.data.AppDatabase
+import com.example.salarytracker.data.SalaryConfig
 import com.example.salarytracker.data.Transaction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-// Класс-модель для отображения строки месяца в таблице
 data class MonthSummary(
     val monthName: String,
     val year: Int,
-    val totalSalary: Double = 1500.0, // Плановая зарплата (можешь поменять цифру)
-    val totalPaid: Double,             // Сколько уже внесено денег
-    val debt: Double,                  // Остаток (Плановые - Внесенные)
-    val isCurrentMonth: Boolean
+    val totalSalary: Double,
+    val totalPaid: Double,
+    val debt: Double,
+    val isCurrentMonth: Boolean,
+    val dbKey: String // Ключ для связи с БД
 )
 
 class SalaryViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Инициализируем DAO через наш синглтон базы данных
     private val transactionDao = AppDatabase.getDatabase(application).transactionDao()
 
-    // Превращаем Flow из Room в StateFlow, который Compose умеет читать и автоматически обновлять UI
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Самая важная часть: превращаем список транзакций в готовую таблицу месяцев!
-    val monthlySummaries: StateFlow<List<MonthSummary>> = allTransactions.map { transactions ->
+    // Получаем поток кастомных зарплат
+    private val allSalaryConfigs = transactionDao.getAllSalaryConfigs()
+
+    // Объединяем транзакции и зарплаты в один расчетный поток
+    val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
+        allTransactions,
+        allSalaryConfigs
+    ) { transactions, configs ->
         val now = LocalDate.now()
-
-        // Создаем список для 4 месяцев: текущий и 3 предыдущих (как на эскизе)
         val monthsToDisplay = (0..3).map { now.minusMonths(it.toLong()) }
 
+        // Превращаем список конфигов в удобную Map [КЛЮЧ -> ЗАРПЛАТА]
+        val configsMap = configs.associate { it.monthYearKey to it.customSalary }
+
         monthsToDisplay.map { targetDate ->
-            // Фильтруем транзакции, которые относятся к этому месяцу и году
+            val monthNameEng = targetDate.month.name // Для стабильного ключа в БД
+            val dbKey = "${monthNameEng}_${targetDate.year}"
+
+            // Если в БД есть кастомная зарплата — берем ее, иначе дефолтные 75000
+            val planSalary = configsMap[dbKey] ?: 75000.0
+
             val filteredTrans = transactions.filter {
                 it.date.month == targetDate.month && it.date.year == targetDate.year
             }
-
             val totalPaid = filteredTrans.sumOf { it.amount }
-            val planSalary = 75000.0 // Фиксированная зарплата для расчета
             val debt = if (planSalary - totalPaid > 0) planSalary - totalPaid else 0.0
 
             MonthSummary(
@@ -66,23 +72,23 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                 totalSalary = planSalary,
                 totalPaid = totalPaid,
                 debt = debt,
-                isCurrentMonth = targetDate.month == now.month && targetDate.year == now.year
+                isCurrentMonth = targetDate.month == now.month && targetDate.year == now.year,
+                dbKey = dbKey
             )
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Функция сохранения новой записи. Запускается в фоновом потоке (Coroutine)
     fun addTransaction(amount: Double, date: LocalDate) {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {   // Переключаем на фоновый поток IO
-            val newTransaction = Transaction(
-                amount = amount,
-                date = date
-            )
+        viewModelScope.launch(Dispatchers.IO) {
+            val newTransaction = Transaction(amount = amount, date = date)
             transactionDao.insertTransaction(newTransaction)
+        }
+    }
+
+    // НОВЫЙ МЕТОД: Обновление зарплаты для конкретного месяца
+    fun updateSalaryForMonth(dbKey: String, newSalary: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionDao.insertSalaryConfig(SalaryConfig(dbKey, newSalary))
         }
     }
 }

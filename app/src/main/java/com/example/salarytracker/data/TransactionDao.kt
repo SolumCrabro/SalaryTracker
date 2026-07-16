@@ -2,18 +2,26 @@ package com.example.salarytracker.data
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
 
-    // Позволяет вставить новую транзакцию в базу данных
     @Insert
-    suspend fun insertTransaction(transaction: Transaction): Unit
+    fun insertTransaction(transaction: Transaction)
 
-    // Получает ВСЕ внесенные деньги, сортируя их от самых новых к старым.
-    // Используем Flow, чтобы интерфейс автоматически обновлялся при добавлении новых записей!
     @Query("SELECT * FROM salary_transactions ORDER BY date DESC")
     fun getAllTransactions(): Flow<List<Transaction>>
+
+    // --- НОВЫЕ ФУНКЦИИ ДЛЯ ЗАРПЛАТЫ ---
+
+    // Сохраняет или обновляет зарплату для месяца (если ключ уже есть, перезапишет его)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertSalaryConfig(config: SalaryConfig): Unit
+
+    // Получает все измененные зарплаты
+    @Query("SELECT * FROM salary_configs")
+    fun getAllSalaryConfigs(): Flow<List<SalaryConfig>>
 }

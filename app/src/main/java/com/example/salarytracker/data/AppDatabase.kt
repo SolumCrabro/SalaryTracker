@@ -6,7 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [Transaction::class], version = 1, exportSchema = false)
+@Database(
+    entities = [Transaction::class, SalaryConfig::class],
+    version = 2,
+    exportSchema = false
+)
 @TypeConverters(DateConverter::class) // Подключаем наш конвертер дат
 abstract class AppDatabase : RoomDatabase() {
 

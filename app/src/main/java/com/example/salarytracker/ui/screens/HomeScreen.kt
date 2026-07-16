@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.ui.components.CurrentMonthCard
 import com.example.salarytracker.ui.components.MonthRowItem
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
@@ -71,13 +73,37 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 24.dp, vertical = 4.dp), // Отступы должны совпадать с плашками
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Месяц", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            Text(text = "Флажок", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(0.5f))
-            Text(text = "Остаток", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            Text(text = "Зарплата", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
+            // Название месяца (прижато влево)
+            Text(
+                text = "Месяц",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Пустой блок-заглушка с весом 0.5f, который занимает место над иконкой-галочкой
+            Spacer(modifier = Modifier.weight(0.5f))
+
+            // Остаток (выровнен по правому краю своей колонки)
+            Text(
+                text = "Остаток",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Зарплата (выровнена по правому краю своей колонки)
+            Text(
+                text = "Зарплата",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f)
+            )
         }
 
         // Выводим таблицу месяцев из базы данных

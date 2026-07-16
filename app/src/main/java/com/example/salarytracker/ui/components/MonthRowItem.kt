@@ -72,7 +72,7 @@ fun MonthRowItem(
             Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
                 Text(text = "Остаток", fontSize = 11.sp, color = Color.Gray)
                 Text(
-                    text = "₽${String.format("%,.0f", debt)}",
+                    text = "$${String.format("%,.0f", debt)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (debt > 0) Color(0xFFC78165) else Color.Gray
@@ -83,7 +83,7 @@ fun MonthRowItem(
             Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
                 Text(text = "Зарплата", fontSize = 11.sp, color = Color.Gray)
                 Text(
-                    text = "₽${String.format("%,.0f", salary)}",
+                    text = "$${String.format("%,.0f", salary)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4A7A64) // Зеленоватый оттенок для зарплаты

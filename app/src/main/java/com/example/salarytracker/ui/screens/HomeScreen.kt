@@ -79,11 +79,11 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             items(monthlyData) { summary ->
-                // Оборачиваем плашку в Box с clickable, чтобы отлавливать нажатия
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        // Разрешаем клик, только если месяц активен!
+                        .clickable(enabled = summary.isActive) {
                             selectedMonthSummary = summary
                             inputSalaryText = summary.totalSalary.toInt().toString()
                             showDialog = true
@@ -94,7 +94,8 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                         subTitle = summary.year.toString(),
                         debt = summary.debt,
                         salary = summary.totalSalary,
-                        isCurrentMonth = summary.isCurrentMonth
+                        isCurrentMonth = summary.isCurrentMonth,
+                        isActive = summary.isActive // Передаем состояние активности!
                     )
                 }
             }

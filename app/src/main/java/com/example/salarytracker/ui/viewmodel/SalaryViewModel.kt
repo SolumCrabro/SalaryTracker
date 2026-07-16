@@ -27,6 +27,7 @@ data class MonthSummary(
     val totalPaid: Double,
     val debt: Double,
     val isCurrentMonth: Boolean,
+    val isActive: Boolean,
     val dbKey: String
 )
 
@@ -37,40 +38,51 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
 
     val isFirstRun = appSettings.isFirstRun.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     private val defaultSalary = appSettings.defaultSalary
-    private val startMonthOffset = appSettings.startMonthOffset
+    private val startMonth = appSettings.startMonth
+    private val startYear = appSettings.startYear
+    private val historyDepth = appSettings.historyDepth
 
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val allSalaryConfigs = transactionDao.getAllSalaryConfigs()
 
-    // Объединяем транзакции, кастомные конфиги зп и глобальные настройки пользователя
+    // ИСКУССТВЕННО ОБЪЕДИНЯЕМ 6 ПОТОКОВ ЧЕРЕЗ МАССИВ, ЧТОБЫ КОМПИЛЯТОР ЗНАЛ ТИПЫ ДАННЫХ
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
         allTransactions,
         allSalaryConfigs,
         defaultSalary,
-        startMonthOffset
-    ) { transactions, configs, defSalary, offset ->
+        startMonth,
+        startYear,
+        historyDepth
+    ) { args ->
+        // Извлекаем элементы строго по индексам в порядке их перечисления в combine!
+        @Suppress("UNCHECKED_CAST")
+        val transactions = args[0] as List<Transaction>
+        @Suppress("UNCHECKED_CAST")
+        val configs = args[1] as List<SalaryConfig>
+        val defSalary = args[2] as Double
+        val stMonth = args[3] as Int
+        val stYear = args[4] as Int
+        val depth = args[5] as Int
+
         val now = LocalDate.now()
-
-        // Показываем месяцы от текущего назад до выбранного стартового (минимум текущий месяц)
-        val monthsCount = if (offset < 0) 0 else offset
-        val monthsToDisplay = (0..monthsCount).map { now.minusMonths(it.toLong()) }
-
+        val monthsToDisplay = (0 until depth).map { now.minusMonths(it.toLong()) }
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
+        val startDate = LocalDate.of(stYear, stMonth, 1)
 
         monthsToDisplay.map { targetDate ->
             val monthNameEng = targetDate.month.name
             val dbKey = "${monthNameEng}_${targetDate.year}"
 
-            // Если для месяца нет кастомной зп — берем базовую зп пользователя
+            val isActive = !targetDate.withDayOfMonth(1).isBefore(startDate)
             val planSalary = configsMap[dbKey] ?: defSalary
 
             val filteredTrans = transactions.filter {
                 it.date.month == targetDate.month && it.date.year == targetDate.year
             }
             val totalPaid = filteredTrans.sumOf { it.amount }
-            val debt = if (planSalary - totalPaid > 0) planSalary - totalPaid else 0.0
+            val debt = if (isActive && (planSalary - totalPaid > 0)) planSalary - totalPaid else 0.0
 
             MonthSummary(
                 monthName = targetDate.month.getDisplayName(TextStyle.FULL, Locale("ru")).replaceFirstChar { it.uppercase() },
@@ -79,14 +91,15 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                 totalPaid = totalPaid,
                 debt = debt,
                 isCurrentMonth = targetDate.month == now.month && targetDate.year == now.year,
+                isActive = isActive,
                 dbKey = dbKey
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun completeOnboarding(salary: Double, monthOffset: Int) {
+    fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            appSettings.saveInitialSettings(salary, monthOffset)
+            appSettings.saveInitialSettings(salary, startMonth, startYear, depth)
         }
     }
 

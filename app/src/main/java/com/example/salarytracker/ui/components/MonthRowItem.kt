@@ -76,7 +76,7 @@ fun MonthRowItem(
             ) {
                 Text(text = "Остаток", fontSize = 11.sp, color = Color.Gray)
                 Text(
-                    text = "₽${String.format("%,.0f", debt)}",
+                    text = "$${String.format("%,.0f", debt)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.End,
@@ -91,7 +91,7 @@ fun MonthRowItem(
             ) {
                 Text(text = "Зарплата", fontSize = 11.sp, color = Color.Gray)
                 Text(
-                    text = "₽${String.format("%,.0f", salary)}",
+                    text = "$${String.format("%,.0f", salary)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.End,

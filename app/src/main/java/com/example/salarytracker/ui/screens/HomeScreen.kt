@@ -115,7 +115,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                         onValueChange = { newValue ->
                             if (newValue.all { it.isDigit() }) inputSalaryText = newValue
                         },
-                        label = { Text("Сумма (₽)") },
+                        label = { Text("Сумма ($)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

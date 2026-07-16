@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun MonthRowItem(
@@ -69,24 +70,32 @@ fun MonthRowItem(
             Spacer(modifier = Modifier.width(16.dp))
 
             // Остаток (Долг)
-            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
+            Column(
+                horizontalAlignment = Alignment.End, // Выравнивает элементы колонки по правому краю
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(text = "Остаток", fontSize = 11.sp, color = Color.Gray)
                 Text(
                     text = "₽${String.format("%,.0f", debt)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.End,
                     color = if (debt > 0) Color(0xFFC78165) else Color.Gray
                 )
             }
 
-            // Зарплата
-            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
+// Зарплата
+            Column(
+                horizontalAlignment = Alignment.End, // Выравнивает элементы колонки по правому краю
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(text = "Зарплата", fontSize = 11.sp, color = Color.Gray)
                 Text(
                     text = "₽${String.format("%,.0f", salary)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4A7A64) // Зеленоватый оттенок для зарплаты
+                    textAlign = TextAlign.End,
+                    color = Color(0xFF4A7A64)
                 )
             }
         }

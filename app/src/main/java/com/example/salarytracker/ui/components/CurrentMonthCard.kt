@@ -59,7 +59,7 @@ fun CurrentMonthCard(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "₽${String.format("%,.0f", totalDebt)}",
+                text = "$${String.format("%,.0f", totalDebt)}",
                 color = Color(0xFFC78165),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold

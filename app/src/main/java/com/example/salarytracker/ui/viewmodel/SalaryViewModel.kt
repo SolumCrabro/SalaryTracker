@@ -44,10 +44,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Поток кастомных зарплат из базы данных
     val allSalaryConfigs: Flow<List<SalaryConfig>> = transactionDao.getAllSalaryConfigs()
 
-    // Главный расчетный поток
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
         allTransactions,
         allSalaryConfigs,
@@ -56,7 +54,6 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         startYear,
         historyDepth
     ) { args ->
-        // Извлекаем данные из массива строго по индексам их перечисления выше
         @Suppress("UNCHECKED_CAST")
         val transactions = args[0] as List<Transaction>
 
@@ -72,10 +69,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
         val startDate = LocalDate.of(stYear, stMonth, 1)
 
-        // 1. Берем СУММУ ВООБЩЕ ВСЕХ внесенных денег из базы данных
         var totalMoneyAvailable = transactions.sumOf { it.amount }
 
-        // Генерируем список месяцев в ХРОНОЛОГИЧЕСКОМ порядке (от старых к новым: Май -> Июнь -> Июль)
         val chronologicalMonths = (0 until depth).map { now.minusMonths(it.toLong()) }.reversed()
         val calculatedSummaries = mutableListOf<MonthSummary>()
 
@@ -90,24 +85,19 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             val totalPaidForThisMonth: Double
 
             if (isActive) {
-                // 2. Распределяем общую сумму денег по цепочке месяцев, начиная с самого старого
                 if (totalMoneyAvailable >= planSalary) {
-                    // Если денег хватает на весь месяц целиком
                     totalPaidForThisMonth = planSalary
                     debt = 0.0
-                    totalMoneyAvailable -= planSalary // Списываем потраченную часть денег
+                    totalMoneyAvailable -= planSalary
                 } else if (totalMoneyAvailable > 0) {
-                    // Если деньги остались, но их хватает только частично
                     totalPaidForThisMonth = totalMoneyAvailable
                     debt = planSalary - totalMoneyAvailable
-                    totalMoneyAvailable = 0.0 // Все доступные деньги закончились
+                    totalMoneyAvailable = 0.0
                 } else {
-                    // Денег на этот месяц уже не осталось
                     totalPaidForThisMonth = 0.0
                     debt = planSalary
                 }
             } else {
-                // Если по настройкам пользователя учет в этом месяце еще не велся
                 totalPaidForThisMonth = 0.0
                 debt = 0.0
             }
@@ -126,28 +116,31 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             )
         }
 
-        // Разворачиваем список обратно, чтобы текущий месяц (Июль) отображался на самом верху таблицы
         calculatedSummaries.reversed()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Метод завершения первичной настройки приложения
     fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             appSettings.saveInitialSettings(salary, startMonth, startYear, depth)
         }
     }
 
-    // Метод добавления платежа в базу данных
     fun addTransaction(amount: Double, date: LocalDate) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.insertTransaction(Transaction(amount = amount, date = date))
         }
     }
 
-    // Метод изменения плановой зарплаты для конкретного месяца
     fun updateSalaryForMonth(dbKey: String, newSalary: Double) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.insertSalaryConfig(SalaryConfig(dbKey, newSalary))
+        }
+    }
+
+    // МЕТОД ДЛЯ УДАЛЕНИЯ ИЗ БАЗЫ ДАННЫХ
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionDao.deleteTransaction(transaction)
         }
     }
 }

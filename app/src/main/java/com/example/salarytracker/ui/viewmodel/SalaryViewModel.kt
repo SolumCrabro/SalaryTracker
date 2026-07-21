@@ -25,6 +25,7 @@ data class MonthSummary(
     val totalSalary: Double,
     val totalPaid: Double,
     val debt: Double,
+    val surplus: Double, // НОВОЕ ПОЛЕ: Сумма профицита (переплаты) в этом месяце
     val isCurrentMonth: Boolean,
     val isActive: Boolean,
     val dbKey: String
@@ -47,19 +48,10 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     val allSalaryConfigs: Flow<List<SalaryConfig>> = transactionDao.getAllSalaryConfigs()
 
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
-        allTransactions,
-        allSalaryConfigs,
-        defaultSalary,
-        startMonth,
-        startYear,
-        historyDepth
+        allTransactions, allSalaryConfigs, defaultSalary, startMonth, startYear, historyDepth
     ) { args ->
-        @Suppress("UNCHECKED_CAST")
-        val transactions = args[0] as List<Transaction>
-
-        @Suppress("UNCHECKED_CAST")
-        val configs = args[1] as List<SalaryConfig>
-
+        @Suppress("UNCHECKED_CAST") val transactions = args[0] as List<Transaction>
+        @Suppress("UNCHECKED_CAST") val configs = args[1] as List<SalaryConfig>
         val defSalary = args[2] as Double
         val stMonth = args[3] as Int
         val stYear = args[4] as Int
@@ -69,6 +61,7 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
         val startDate = LocalDate.of(stYear, stMonth, 1)
 
+        // Считаем общую сумму ВСЕХ денег
         var totalMoneyAvailable = transactions.sumOf { it.amount }
 
         val chronologicalMonths = (0 until depth).map { now.minusMonths(it.toLong()) }.reversed()
@@ -82,33 +75,50 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             val planSalary = configsMap[dbKey] ?: defSalary
 
             val debt: Double
+            val surplus: Double // локальный профицит месяца
             val totalPaidForThisMonth: Double
 
             if (isActive) {
                 if (totalMoneyAvailable >= planSalary) {
-                    totalPaidForThisMonth = planSalary
+                    // ЕСЛИ ДЕНЕГ БОЛЬШЕ ИЛИ РОВНО ПЛАНУ:
+                    totalPaidForThisMonth = totalMoneyAvailable // Показываем ВСЮ сумму, что дошла до этого месяца
                     debt = 0.0
-                    totalMoneyAvailable -= planSalary
+
+                    // Если это ПОСЛЕДНИЙ (текущий) месяц в цепочке, фиксируем профицит
+                    surplus = if (targetDate.month == now.month && targetDate.year == now.year) {
+                        totalMoneyAvailable - planSalary
+                    } else {
+                        0.0
+                    }
+
+                    totalMoneyAvailable -= planSalary // Списываем только норму плана, остаток идет дальше
                 } else if (totalMoneyAvailable > 0) {
+                    // Частичное погашение
                     totalPaidForThisMonth = totalMoneyAvailable
                     debt = planSalary - totalMoneyAvailable
+                    surplus = 0.0
                     totalMoneyAvailable = 0.0
                 } else {
+                    // Денег нет
                     totalPaidForThisMonth = 0.0
                     debt = planSalary
+                    surplus = 0.0
                 }
             } else {
                 totalPaidForThisMonth = 0.0
                 debt = 0.0
+                surplus = 0.0
             }
 
             calculatedSummaries.add(
                 MonthSummary(
-                    monthName = targetDate.month.getDisplayName(TextStyle.FULL, Locale("ru")).replaceFirstChar { it.uppercase() },
+                    // Исправляем падеж: преобразуем "Июля" в "Июль" для красоты
+                    monthName = targetDate.month.getDisplayName(TextStyle.FULL_STANDALONE, java.util.Locale("ru")).replaceFirstChar { it.uppercase() },
                     year = targetDate.year,
                     totalSalary = planSalary,
                     totalPaid = totalPaidForThisMonth,
                     debt = debt,
+                    surplus = surplus,
                     isCurrentMonth = targetDate.month == now.month && targetDate.year == now.year,
                     isActive = isActive,
                     dbKey = dbKey
@@ -137,7 +147,6 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // МЕТОД ДЛЯ УДАЛЕНИЯ ИЗ БАЗЫ ДАННЫХ
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.deleteTransaction(transaction)

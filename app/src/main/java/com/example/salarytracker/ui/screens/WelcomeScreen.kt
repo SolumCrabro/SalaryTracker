@@ -53,7 +53,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
         OutlinedTextField(
             value = salaryText,
             onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-            label = { Text("Зарплата по умолчанию в месяц (₽)") },
+            label = { Text("Зарплата по умолчанию в месяц ($)") },
             placeholder = { Text("Например, 75000") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),

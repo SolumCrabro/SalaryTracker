@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close // Добавили импорт крестика
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -26,18 +27,28 @@ fun MonthRowItem(
     debt: Double,
     salary: Double,
     isCurrentMonth: Boolean = false,
-    isActive: Boolean = true // Новое поле: активен ли месяц для учета
+    isActive: Boolean = true
 ) {
-    // Неактивный месяц плавно приглушаем (прозрачность 50%) и убираем золотую рамку
     val alpha = if (isActive) 1f else 0.5f
     val border = if (isCurrentMonth && isActive) BorderStroke(2.dp, Color(0xFFD4AF37)) else null
-    val iconColor = if (isCurrentMonth && isActive) Color(0xFFD4AF37) else Color(0xFF99A3A4)
+
+    // ЛОГИКА ИКОНКИ: Если есть долг — крестик, если долга нет — галочка
+    val hasDebt = debt > 0
+    val iconImage = if (hasDebt) Icons.Default.Close else Icons.Default.CheckCircle
+
+    // ЛОГИКА ЦВЕТА ИКОНКИ: Красный для долга, Золотой для закрытого текущего, зеленый/серый для остальных
+    val iconColor = when {
+        !isActive -> Color(0xFF99A3A4)
+        hasDebt -> Color(0xFFC78165) // Терракотовый/Красный крестик для долга
+        isCurrentMonth -> Color(0xFFD4AF37) // Золотая галочка для текущего закрытого месяца
+        else -> Color(0xFF4A7A64) // Зеленая галочка для прошлых закрытых месяцев
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .alpha(alpha), // Применяем приглушение цвета
+            .alpha(alpha),
         shape = RoundedCornerShape(16.dp),
         border = border,
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F2F2)),
@@ -56,8 +67,9 @@ fun MonthRowItem(
                 }
             }
 
+            // Динамическая иконка статуса
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = iconImage,
                 contentDescription = "Статус",
                 tint = iconColor,
                 modifier = Modifier.size(28.dp).padding(horizontal = 4.dp)
@@ -68,11 +80,10 @@ fun MonthRowItem(
             Spacer(modifier = Modifier.width(16.dp))
 
             if (isActive) {
-                // Если месяц активен — выводим стандартные расчеты
                 Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                     Text(text = "Остаток", fontSize = 11.sp, color = Color.Gray)
                     Text(
-                        text = "₽${String.format("%,.0f", debt)}",
+                        text = "$${String.format("%,.0f", debt)}", // Заменили ₽ на $
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.End,
@@ -83,7 +94,7 @@ fun MonthRowItem(
                 Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                     Text(text = "Зарплата", fontSize = 11.sp, color = Color.Gray)
                     Text(
-                        text = "₽${String.format("%,.0f", salary)}",
+                        text = "$${String.format("%,.0f", salary)}", // Заменили ₽ на $
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.End,
@@ -91,11 +102,7 @@ fun MonthRowItem(
                     )
                 }
             } else {
-                // Если месяц ДО начала ведения учета — пишем "Нет истории" на всю правую часть
-                Box(
-                    modifier = Modifier.weight(2f),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
+                Box(modifier = Modifier.weight(2f), contentAlignment = Alignment.CenterEnd) {
                     Text(
                         text = "Нет истории (учет не велся)",
                         fontSize = 13.sp,

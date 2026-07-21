@@ -23,17 +23,19 @@ import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
 @Composable
 fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
-    // Подписываемся на наш расчетный поток из ViewModel
     val monthlyData by viewModel.monthlySummaries.collectAsState()
 
-    // Находим текущий месяц для отображения его имени в карточке
     val currentMonthInfo = monthlyData.find { it.isCurrentMonth }
     val currentMonthName = currentMonthInfo?.monthName ?: "Текущий"
 
-    // ИСПРАВЛЕНИЕ: Суммируем долг (Остаток) по всей таблице активных месяцев учета!
-    val totalDebt = monthlyData.filter { it.isActive }.sumOf { it.debt }
+    // ВЫЧИСЛЕНИЕ ДЛЯ КАРТОЧКИ: Сумма долгов минус профицит текущего месяца.
+    // Если итог отрицательный — карточка автоматически переключится в режим зеленого профицита!
+    val activeMonths = monthlyData.filter { it.isActive }
+    val totalDebtValue = activeMonths.sumOf { it.debt }
+    val currentMonthSurplus = currentMonthInfo?.surplus ?: 0.0
 
-    // Состояния для управления диалоговым окном редактирования зарплаты
+    val finalCardBalance = if (currentMonthSurplus > 0) -currentMonthSurplus else totalDebtValue
+
     var showDialog by remember { mutableStateOf(false) }
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
     var inputSalaryText by remember { mutableStateOf("") }
@@ -43,7 +45,6 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Главный заголовок экрана
         Text(
             text = "Мои деньги",
             fontSize = 28.sp,
@@ -52,15 +53,13 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             color = Color(0xFF2C3E50)
         )
 
-        // Верхняя карточка теперь отображает честную общую сумму долгов
         CurrentMonthCard(
             monthName = currentMonthName,
-            totalDebt = totalDebt
+            totalDebt = finalCardBalance
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Заголовок раздела истории
         Text(
             text = "ИСТОРИЯ",
             fontSize = 20.sp,
@@ -69,7 +68,6 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             color = Color(0xFF2C3E50)
         )
 
-        // Подзаголовки таблицы (Месяц, Остаток, Зарплата)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -77,12 +75,11 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Месяц", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.weight(0.5f)) // Невидимый отступ над иконкой-галочкой
+            Spacer(modifier = Modifier.weight(0.5f))
             Text(text = "Остаток", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
             Text(text = "Зарплата", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
 
-        // Выводим таблицу месяцев из базы данных
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 16.dp)
@@ -91,17 +88,21 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // Клик разрешен только для активных месяцев учета
                         .clickable(enabled = summary.isActive) {
                             selectedMonthSummary = summary
                             inputSalaryText = summary.totalSalary.toInt().toString()
                             showDialog = true
                         }
                 ) {
+                    // Подменяем отображение остатка, если по месяцу есть профицит
+                    val hasSurplus = summary.surplus > 0
+                    val displayDebt = if (hasSurplus) 0.0 else summary.debt
+
                     MonthRowItem(
                         monthName = summary.monthName,
-                        subTitle = summary.year.toString(),
-                        debt = summary.debt,
+                        // Если есть профицит — пишем его под годом для наглядности!
+                        subTitle = if (hasSurplus) "${summary.year} (Выплачено: ₽${String.format("%,.0f", summary.totalPaid)})" else summary.year.toString(),
+                        debt = displayDebt,
                         salary = summary.totalSalary,
                         isCurrentMonth = summary.isCurrentMonth,
                         isActive = summary.isActive
@@ -111,7 +112,6 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
         }
     }
 
-    // --- ДИАЛОГОВОЕ ОКНО ИЗМЕНЕНИЯ ЗАРПЛАТЫ ---
     if (showDialog && selectedMonthSummary != null) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -125,7 +125,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                         onValueChange = { newValue ->
                             if (newValue.all { it.isDigit() }) inputSalaryText = newValue
                         },
-                        label = { Text("Сумма (₽)") },
+                        label = { Text("Сумма ($)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

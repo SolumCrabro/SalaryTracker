@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,12 +11,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.salarytracker.R
 import com.example.salarytracker.ui.components.CurrentMonthCard
 import com.example.salarytracker.ui.components.MonthRowItem
 import com.example.salarytracker.ui.viewmodel.MonthSummary
@@ -23,95 +27,113 @@ import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
 @Composable
 fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
+    // Подписываемся на наш расчетный поток из ViewModel
     val monthlyData by viewModel.monthlySummaries.collectAsState()
 
+    // Находим текущий месяц для отображения его имени в карточке
     val currentMonthInfo = monthlyData.find { it.isCurrentMonth }
     val currentMonthName = currentMonthInfo?.monthName ?: "Текущий"
 
-    // ВЫЧИСЛЕНИЕ ДЛЯ КАРТОЧКИ: Сумма долгов минус профицит текущего месяца.
-    // Если итог отрицательный — карточка автоматически переключится в режим зеленого профицита!
+    // Суммируем долг (Остаток) по всей таблице активных месяцев учета
     val activeMonths = monthlyData.filter { it.isActive }
     val totalDebtValue = activeMonths.sumOf { it.debt }
     val currentMonthSurplus = currentMonthInfo?.surplus ?: 0.0
 
     val finalCardBalance = if (currentMonthSurplus > 0) -currentMonthSurplus else totalDebtValue
 
+    // Состояния для управления диалоговым окном редактирования зарплаты
     var showDialog by remember { mutableStateOf(false) }
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
     var inputSalaryText by remember { mutableStateOf("") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 16.dp)
-    ) {
-        Text(
-            text = "Мои деньги",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color(0xFF2C3E50)
+    // Главный контейнер-бокс для наложения объемного заднего фона
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.app_background), // Твой размытый зелено-золотой фон
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
-        CurrentMonthCard(
-            monthName = currentMonthName,
-            totalDebt = finalCardBalance
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "ИСТОРИЯ",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            color = Color(0xFF2C3E50)
-        )
-
-        Row(
+        // Весь интерфейс идет поверх фона
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(top = 16.dp)
         ) {
-            Text(text = "Месяц", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.weight(0.5f))
-            Text(text = "Остаток", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-            Text(text = "Зарплата", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-        }
+            // Главный заголовок экрана
+            Text(
+                text = "Мои деньги",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = Color(0xFF2C3E50)
+            )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            items(monthlyData) { summary ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = summary.isActive) {
-                            selectedMonthSummary = summary
-                            inputSalaryText = summary.totalSalary.toInt().toString()
-                            showDialog = true
-                        }
-                ) {
-                    // Подменяем отображение остатка, если по месяцу есть профицит
-                    val hasSurplus = summary.surplus > 0
-                    val displayDebt = if (hasSurplus) 0.0 else summary.debt
+            // Верхняя карточка с текстурой шлифованного металла
+            CurrentMonthCard(
+                monthName = currentMonthName,
+                totalDebt = finalCardBalance
+            )
 
-                    MonthRowItem(
-                        monthName = summary.monthName,
-                        // Если есть профицит — пишем его под годом для наглядности!
-                        subTitle = if (hasSurplus) "${summary.year} (Выплачено: ₽${String.format("%,.0f", summary.totalPaid)})" else summary.year.toString(),
-                        debt = displayDebt,
-                        salary = summary.totalSalary,
-                        isCurrentMonth = summary.isCurrentMonth,
-                        isActive = summary.isActive
-                    )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Заголовок раздела истории
+            Text(
+                text = "ИСТОРИЯ",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                color = Color(0xFF2C3E50)
+            )
+
+            // Подзаголовки таблицы (Месяц, Остаток, Зарплата) с идеальным выравниванием по правому краю
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Месяц", fontSize = 12.sp, color = Color(0xFF555555), modifier = Modifier.weight(1.3f))
+                Spacer(modifier = Modifier.weight(0.5f)) // Невидимый отступ над иконкой статуса
+                Text(text = "Остаток", fontSize = 12.sp, color = Color(0xFF555555), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+                Text(text = "Зарплата", fontSize = 12.sp, color = Color(0xFF555555), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+            }
+
+            // Выводим объемную таблицу месяцев из базы данных
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                items(monthlyData) { summary ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // Клик разрешен только для активных месяцев учета
+                            .clickable(enabled = summary.isActive) {
+                                selectedMonthSummary = summary
+                                inputSalaryText = summary.totalSalary.toInt().toString()
+                                showDialog = true
+                            }
+                    ) {
+                        val hasSurplus = summary.surplus > 0
+                        val displayDebt = if (hasSurplus) 0.0 else summary.debt
+
+                        MonthRowItem(
+                            monthName = summary.monthName,
+                            subTitle = if (hasSurplus) "${summary.year} (Выплачено: $${String.format("%,.0f", summary.totalPaid)})" else summary.year.toString(),
+                            debt = displayDebt,
+                            salary = summary.totalSalary,
+                            isCurrentMonth = summary.isCurrentMonth,
+                            isActive = summary.isActive
+                        )
+                    }
                 }
             }
         }
     }
 
+    // --- ДИАЛОГОВОЕ ОКНО ИЗМЕНЕНИЯ ЗАРПЛАТЫ ---
     if (showDialog && selectedMonthSummary != null) {
         AlertDialog(
             onDismissRequest = { showDialog = false },

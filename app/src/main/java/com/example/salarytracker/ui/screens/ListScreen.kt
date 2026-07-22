@@ -2,6 +2,7 @@ package com.example.salarytracker.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,12 +15,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.salarytracker.R
 import com.example.salarytracker.data.Transaction
 import com.example.salarytracker.ui.components.TransactionRowItem
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
@@ -32,88 +36,102 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Состояния для управления диалогом удаления
     var showDeleteDialog by remember { mutableStateOf(false) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
-
-    // Храним ссылку на стейт свайпа той карточки, которую сейчас планируем удалить
     var currentDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 16.dp)
-    ) {
-        Text(
-            text = "История поступлений",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color(0xFF2C3E50)
+    // Главный контейнер-бокс для наложения объемного заднего фона
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.app_background), // Наш общий фон
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 16.dp)
+        ) {
+            Text(
+                text = "История поступлений",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = Color(0xFF2C3E50)
+            )
 
-        if (transactions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                items(transactions, key = { it.id }) { transaction ->
+            Spacer(modifier = Modifier.height(8.dp))
 
-                    val dismissState = rememberSwipeToDismissBoxState()
-
-                    // Безопасный перехват свайпа: отслеживаем целевое значение анимации (targetValue)
-                    if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart && transactionToDelete == null && !showDeleteDialog) {
-                        transactionToDelete = transaction
-                        currentDismissState = dismissState
-                        showDeleteDialog = true
+            if (transactions.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Подложка под текст, чтобы он читался на любом фоне
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.7f)),
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Text(
+                            text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
+                            fontSize = 16.sp,
+                            color = Color(0xFF2C3E50),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp)
+                        )
                     }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    items(transactions, key = { it.id }) { transaction ->
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false, // Запрещаем свайп вправо
-                        enableDismissFromEndToStart = true,  // Только влево
-                        backgroundContent = {
-                            val color by animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFC78165)
-                                    else -> Color.Transparent
-                                }
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                                    .background(color, RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Удалить",
-                                    tint = Color.White,
-                                    modifier = Modifier.padding(end = 16.dp)
-                                )
-                            }
-                        },
-                        content = {
-                            TransactionRowItem(transaction = transaction)
+                        val dismissState = rememberSwipeToDismissBoxState()
+
+                        if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart && transactionToDelete == null && !showDeleteDialog) {
+                            transactionToDelete = transaction
+                            currentDismissState = dismissState
+                            showDeleteDialog = true
                         }
-                    )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val color by animateColorAsState(
+                                    when (dismissState.targetValue) {
+                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFC78165)
+                                        else -> Color.Transparent
+                                    }
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp) // Согласовали отступы с MonthRowItem
+                                        .background(color, RoundedCornerShape(20.dp)), // Округлили под плашки
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Удалить",
+                                        tint = Color.White,
+                                        modifier = Modifier.padding(end = 16.dp)
+                                    )
+                                }
+                            },
+                            content = {
+                                TransactionRowItem(transaction = transaction)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -124,14 +142,14 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = {
                 showDeleteDialog = false
-                coroutineScope.launch { currentDismissState?.reset() } // Плавный возврат карточки на место
+                coroutineScope.launch { currentDismissState?.reset() }
                 transactionToDelete = null
                 currentDismissState = null
             },
             title = { Text(text = "Удаление платежа") },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму ₽${String.format("%,.0f", transactionToDelete!!.amount)}?",
+                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format("%,.0f", transactionToDelete!!.amount)}?",
                     fontSize = 15.sp
                 )
             },
@@ -153,12 +171,9 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        // Мягко возвращаем карточку назад на экран с помощью встроенного метода .reset()
-                        coroutineScope.launch {
-                            currentDismissState?.reset()
-                            transactionToDelete = null
-                            currentDismissState = null
-                        }
+                        coroutineScope.launch { currentDismissState?.reset() }
+                        transactionToDelete = null
+                        currentDismissState = null
                     }
                 ) {
                     Text("Отмена", color = Color.Gray)

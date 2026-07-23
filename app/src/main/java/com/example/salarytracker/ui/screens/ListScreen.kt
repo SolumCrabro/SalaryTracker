@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -35,15 +37,18 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val transactions by viewModel.allTransactions.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     var currentDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
 
-    // Главный контейнер-бокс для наложения объемного заднего фона
+    val bgResource = if (isDark) R.drawable.app_background_dark else R.drawable.app_background
+    val mainTextColor = if (isDark) Color.White else Color(0xFF2C3E50)
+
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(id = R.drawable.app_background), // Наш общий фон
+            painter = painterResource(id = bgResource),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -59,7 +64,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = Color(0xFF2C3E50)
+                color = mainTextColor
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -71,16 +76,17 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Подложка под текст, чтобы он читался на любом фоне
                     Card(
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.7f)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDark) Color(0xFF2D3232).copy(alpha = 0.8f) else Color.White.copy(alpha = 0.7f)
+                        ),
                         modifier = Modifier.padding(24.dp)
                     ) {
                         Text(
                             text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
                             fontSize = 16.sp,
-                            color = Color(0xFF2C3E50),
+                            color = mainTextColor,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(24.dp)
                         )
@@ -115,8 +121,8 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp) // Согласовали отступы с MonthRowItem
-                                        .background(color, RoundedCornerShape(20.dp)), // Округлили под плашки
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .background(color, RoundedCornerShape(20.dp)),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     Icon(
@@ -128,7 +134,26 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                                 }
                             },
                             content = {
-                                TransactionRowItem(transaction = transaction)
+                                // Накладываем текстуру металла на каждую плашку внутри TransactionRowItem
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    val rowTexture = if (isDark) R.drawable.metal_bg_dark else R.drawable.metal_bg
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            Image(
+                                                painter = painterResource(id = rowTexture),
+                                                contentDescription = null,
+                                                modifier = Modifier.matchParentSize().clip(RoundedCornerShape(12.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            TransactionRowItem(transaction = transaction)
+                                        }
+                                    }
+                                }
                             }
                         )
                     }
@@ -137,7 +162,6 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
         }
     }
 
-    // --- ДИАЛОГ ПОДТВЕРЖДЕНИЯ УДАЛЕНИЯ ---
     if (showDeleteDialog && transactionToDelete != null) {
         AlertDialog(
             onDismissRequest = {

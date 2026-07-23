@@ -2,6 +2,7 @@ package com.example.salarytracker.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -46,10 +47,15 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
     var inputSalaryText by remember { mutableStateOf("") }
 
+    val isDark = isSystemInDarkTheme()
+    val bgResource = if (isDark) R.drawable.app_background_dark else R.drawable.app_background
+    val textColor = if (isDark) Color.White else Color(0xFF2C3E50)
+
+
     // Главный контейнер-бокс для наложения объемного заднего фона
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(id = R.drawable.app_background), // Твой размытый зелено-золотой фон
+            painter = painterResource(id = bgResource), // Твой размытый зелено-золотой фон
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -67,7 +73,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = Color(0xFF2C3E50)
+                color = textColor
             )
 
             // Верхняя карточка с текстурой шлифованного металла
@@ -84,7 +90,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                color = Color(0xFF2C3E50)
+                color = textColor
             )
 
             // Подзаголовки таблицы (Месяц, Остаток, Зарплата) с идеальным выравниванием по правому краю
@@ -94,10 +100,10 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                     .padding(horizontal = 24.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Месяц", fontSize = 12.sp, color = Color(0xFF555555), modifier = Modifier.weight(1.3f))
+                Text(text = "Месяц", fontSize = 12.sp, color = textColor, modifier = Modifier.weight(1.3f))
                 Spacer(modifier = Modifier.weight(0.5f)) // Невидимый отступ над иконкой статуса
-                Text(text = "Остаток", fontSize = 12.sp, color = Color(0xFF555555), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                Text(text = "Зарплата", fontSize = 12.sp, color = Color(0xFF555555), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+                Text(text = "Остаток", fontSize = 12.sp, color = textColor, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+                Text(text = "Зарплата", fontSize = 12.sp, color = textColor, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
             }
 
             // Выводим объемную таблицу месяцев из базы данных
@@ -140,7 +146,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName}") },
             text = {
                 Column {
-                    Text(text = "Укажите плановый размер зарплаты на этот месяц:", fontSize = 14.sp, color = Color.Gray)
+                    Text(text = "Укажите плановый размер зарплаты на этот месяц:", fontSize = 14.sp, color = textColor)
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = inputSalaryText,
@@ -170,7 +176,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("Отмена", color = Color.Gray)
+                    Text("Отмена", color = textColor)
                 }
             }
         )

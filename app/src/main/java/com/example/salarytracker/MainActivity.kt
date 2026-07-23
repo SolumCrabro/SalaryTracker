@@ -4,8 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +34,7 @@ import com.example.salarytracker.ui.screens.AddScreen
 import com.example.salarytracker.ui.screens.HomeScreen
 import com.example.salarytracker.ui.screens.ListScreen
 import com.example.salarytracker.ui.screens.WelcomeScreen
+import com.example.salarytracker.ui.theme.SalaryTrackerTheme
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
 // ГЛАВНАЯ ТОЧКА ВХОДА (Её отсутствие ломало приложение)
@@ -38,8 +43,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             // Запускаем наше красивое приложение
+            SalaryTrackerTheme {
             MainAppScreen()
-        }
+        }}
     }
 }
 
@@ -50,6 +56,8 @@ fun MainAppScreen() {
     val salaryViewModel: SalaryViewModel = viewModel()
     val isFirstRun by salaryViewModel.isFirstRun.collectAsState()
     val items = listOf(Screen.Home, Screen.Add, Screen.List)
+
+    val isDark = isSystemInDarkTheme()
 
     if (isFirstRun == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -71,7 +79,7 @@ fun MainAppScreen() {
     val goldGradient = Brush.linearGradient(
         colors = listOf(Color(0xFFE5C07B), Color(0xFFB38F4F))
     )
-
+    val barTexture = if (isDark) R.drawable.metal_bg_dark else R.drawable.metal_bg
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
@@ -88,49 +96,62 @@ fun MainAppScreen() {
                         .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
                     color = Color.Transparent
                 ) {
-                    NavigationBar(
-                        modifier = Modifier.background(bottomBarGradient),
-                        containerColor = Color.Transparent, // Выключаем плоский цвет по умолчанию
-                        tonalElevation = 0.dp
-                    ) {
-                        items.forEach { screen ->
-                            val isSelected = currentRoute == screen.route
 
-                            NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                        imageVector = screen.icon,
-                                        contentDescription = screen.title,
-                                        // Золотая иконка для активного экрана, серая для остальных
-                                        tint = if (isSelected) Color(0xFFB38F4F) else Color(0xFF888888)
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = screen.title,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        // Золотой текст для активной вкладки
-                                        color = if (isSelected) Color(0xFFB38F4F) else Color(0xFF888888)
-                                    )
-                                },
-                                selected = isSelected,
-                                colors = NavigationBarItemDefaults.colors(
-                                    // Овал-индикатор вокруг иконки делаем мягким золотистым с прозрачностью
-                                    indicatorColor = Color(0xFFE5C07B).copy(alpha = 0.25f)
-                                ),
-                                onClick = {
-                                    if (currentRoute != screen.route) {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Image(
+                            painter = painterResource(id = barTexture), // Текстура на фоне меню
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        NavigationBar(
+                            modifier = Modifier.navigationBarsPadding(),
+                            containerColor = Color.Transparent, // Этого параметра абсолютно достаточно для прозрачности!
+                            tonalElevation = 0.dp
+                        ) {
+                            items.forEach { screen ->
+                                val isSelected = currentRoute == screen.route
+
+                                // Логика цвета текста и иконки: в темной теме неактивные пункты делаем белее
+                                val unselectedColor = if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF888888)
+                                val selectedColor = Color(0xFFE5C07B) // Золото для активного экрана
+
+                                NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                            imageVector = screen.icon,
+                                            contentDescription = screen.title,
+                                            tint = if (isSelected) selectedColor else unselectedColor
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = screen.title,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                                            color = if (isSelected) selectedColor else unselectedColor
+                                        )
+                                    },
+                                    selected = isSelected,
+                                    colors = NavigationBarItemDefaults.colors( // Вот здесь класс называется верно!
+                                        indicatorColor = Color(0xFFE5C07B).copy(alpha = 0.15f),
+                                        // Дополнительно пропишем цвета для самого айтема, чтобы зафиксировать прозрачность
+                                        selectedIconColor = selectedColor,
+                                        unselectedIconColor = unselectedColor
+                                    ),
+                                    onClick = {
+                                        if (currentRoute != screen.route) {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }

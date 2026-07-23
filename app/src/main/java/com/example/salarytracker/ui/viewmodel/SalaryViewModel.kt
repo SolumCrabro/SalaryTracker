@@ -135,9 +135,11 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addTransaction(amount: Double, date: LocalDate) {
+    fun addTransaction(amount: Double, date: LocalDate, paymentType: String) { // Добавили параметр
         viewModelScope.launch(Dispatchers.IO) {
-            transactionDao.insertTransaction(Transaction(amount = amount, date = date))
+            transactionDao.insertTransaction(
+                Transaction(amount = amount, date = date, paymentType = paymentType)
+            )
         }
     }
 

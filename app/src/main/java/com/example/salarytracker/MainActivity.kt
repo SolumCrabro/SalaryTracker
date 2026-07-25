@@ -4,9 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,8 +19,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,18 +33,20 @@ import com.example.salarytracker.ui.screens.AddScreen
 import com.example.salarytracker.ui.screens.HomeScreen
 import com.example.salarytracker.ui.screens.ListScreen
 import com.example.salarytracker.ui.screens.WelcomeScreen
-import com.example.salarytracker.ui.theme.SalaryTrackerTheme
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
-// ГЛАВНАЯ ТОЧКА ВХОДА (Её отсутствие ломало приложение)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Запускаем наше красивое приложение
-            SalaryTrackerTheme {
-            MainAppScreen()
-        }}
+            // Обертка темы приложения
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color(0xFF111214) // Гарантируем глубокий черный фон на самом нижнем слое системы
+            ) {
+                MainAppScreen()
+            }
+        }
     }
 }
 
@@ -56,8 +57,6 @@ fun MainAppScreen() {
     val salaryViewModel: SalaryViewModel = viewModel()
     val isFirstRun by salaryViewModel.isFirstRun.collectAsState()
     val items = listOf(Screen.Home, Screen.Add, Screen.List)
-
-    val isDark = isSystemInDarkTheme()
 
     if (isFirstRun == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -70,76 +69,46 @@ fun MainAppScreen() {
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute != Screen.Welcome.route
 
-    // Объемный градиент для фона меню (в тон плашек месяцев)
-    val bottomBarGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFFFFFFF), Color(0xFFE5E5E5))
+    val goldGradient = Brush.linearGradient(
+        colors = listOf(Color(0xFFE5B067).copy(alpha = 0.5f), Color(0xFF9E7743).copy(alpha = 0.15f))
     )
 
-    // Премиальный золотой градиент для обводки активных элементов
-    val goldGradient = Brush.linearGradient(
-        colors = listOf(Color(0xFFE5C07B), Color(0xFFB38F4F))
-    )
-    val barTexture = if (isDark) R.drawable.metal_bg_dark else R.drawable.metal_bg
     Scaffold(
+        // ИСПРАВЛЕНИЕ №1: Делаем контейнер Scaffold полностью прозрачным, чтобы углы не заливались серым
+        containerColor = Color.Transparent,
         bottomBar = {
             if (showBottomBar) {
-                // Оборачиваем меню в Surface с закруглением верхних углов и глубокой тенью
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(16.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                        // Тонкая золотая полоса-градиент по всему верхнему краю меню для блеска
+                        .shadow(24.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                         .border(
-                            BorderStroke(1.5.dp, goldGradient),
-                            RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                            BorderStroke(1.2.dp, goldGradient),
+                            RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
                         )
-                        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-                    color = Color.Transparent
+                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
+                    color = Color(0xFF1E2022).copy(alpha = 0.95f) // Матовое темное стекло
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // ИСПРАВЛЕНИЕ №2: Перенесли отступ системной навигации строго внутрь панели
+                            .navigationBarsPadding()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        items.forEach { screen ->
+                            val isSelected = currentRoute == screen.route
+                            val contentColor = if (isSelected) Color(0xFFE5B067) else Color(0xFF7A7D84)
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Image(
-                            painter = painterResource(id = barTexture), // Текстура на фоне меню
-                            contentDescription = null,
-                            modifier = Modifier.matchParentSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                        NavigationBar(
-                            modifier = Modifier.navigationBarsPadding(),
-                            containerColor = Color.Transparent, // Этого параметра абсолютно достаточно для прозрачности!
-                            tonalElevation = 0.dp
-                        ) {
-                            items.forEach { screen ->
-                                val isSelected = currentRoute == screen.route
-
-                                // Логика цвета текста и иконки: в темной теме неактивные пункты делаем белее
-                                val unselectedColor = if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF888888)
-                                val selectedColor = Color(0xFFE5C07B) // Золото для активного экрана
-
-                                NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                            imageVector = screen.icon,
-                                            contentDescription = screen.title,
-                                            tint = if (isSelected) selectedColor else unselectedColor
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                            text = screen.title,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
-                                            color = if (isSelected) selectedColor else unselectedColor
-                                        )
-                                    },
-                                    selected = isSelected,
-                                    colors = NavigationBarItemDefaults.colors( // Вот здесь класс называется верно!
-                                        indicatorColor = Color(0xFFE5C07B).copy(alpha = 0.15f),
-                                        // Дополнительно пропишем цвета для самого айтема, чтобы зафиксировать прозрачность
-                                        selectedIconColor = selectedColor,
-                                        unselectedIconColor = unselectedColor
-                                    ),
-                                    onClick = {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
                                         if (currentRoute != screen.route) {
                                             navController.navigate(screen.route) {
                                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -149,7 +118,32 @@ fun MainAppScreen() {
                                                 restoreState = true
                                             }
                                         }
-                                    }
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) Color(0xFFE5B067).copy(alpha = 0.12f) else Color.Transparent)
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = screen.icon,
+                                        contentDescription = screen.title,
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(3.dp))
+
+                                Text(
+                                    text = screen.title,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = contentColor
                                 )
                             }
                         }
@@ -161,7 +155,11 @@ fun MainAppScreen() {
         NavHost(
             navController = navController,
             startDestination = if (isFirstRun == true) Screen.Welcome.route else Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            // Используем innerPadding для контента, но обрезаем нижний отступ, так как меню парит
+            modifier = Modifier.padding(
+                top = innerPadding.calculateTopPadding(),
+                bottom = innerPadding.calculateBottomPadding()
+            )
         ) {
             composable(Screen.Welcome.route) {
                 WelcomeScreen(onFinished = {

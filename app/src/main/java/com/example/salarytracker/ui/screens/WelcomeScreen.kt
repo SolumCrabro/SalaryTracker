@@ -1,15 +1,21 @@
 package com.example.salarytracker.ui.screens
 
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -21,7 +27,6 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel()) {
@@ -29,122 +34,207 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     val now = LocalDate.now()
     val ruLocale = Locale("ru")
 
-    // Списки месяцев для выбора старта (текущий и 3 предыдущих для выбора)
     val startMonthOptions = (0..3).map { now.minusMonths(it.toLong()) }
-    var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) } // По умолчанию старт с текущего
+    var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) }
     var expandedDropdown by remember { mutableStateOf(false) }
+    var selectedDepth by remember { mutableStateOf(3) }
 
-    // Глубина отображения истории
-    var selectedDepth by remember { mutableStateOf(3) } // По умолчанию выводить 3 месяца
+    // Тонкий белый контур для обводки карточки настроек
+    val goldBorderGradient = Brush.linearGradient(
+        colors = listOf(Color(0xFFE5B067).copy(alpha = 0.4f), Color(0xFF9E7743).copy(alpha = 0.05f))
+    )
 
-    Column(
+    // Главный контейнер с глубоким черным фоном кодом
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()), // На случай мелких экранов
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.Start
+            .background(Color(0xFF111214))
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(text = "Добро пожаловать!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C3E50))
-        Text(text = "Давай настроим параметры учета.", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 24.dp))
-
-        // ПУНКТ 1: Ввод базовой зарплаты
-        OutlinedTextField(
-            value = salaryText,
-            onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-            label = { Text("Зарплата по умолчанию в месяц ($)") },
-            placeholder = { Text("Например, 75000") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // ПУНКТ 2: Выбор конкретного месяца начала учета (Выпадающее меню)
-        Text(text = "2. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
-        Spacer(modifier = Modifier.height(6.dp))
-
-        ExposedDropdownMenuBox(
-            expanded = expandedDropdown,
-            onExpandedChange = { expandedDropdown = !expandedDropdown }
-        ) {
-            OutlinedTextField(
-                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
+        // Рисуем мягкое неоновое свечение кодом на фоне приветствия
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFE5B067).copy(alpha = 0.15f), Color.Transparent),
+                    center = Offset(size.width * 0.2f, size.height * 0.2f),
+                    radius = size.width * 0.6f
+                ),
+                radius = size.width * 0.6f,
+                center = Offset(size.width * 0.2f, size.height * 0.2f)
             )
-            ExposedDropdownMenu(
-                expanded = expandedDropdown,
-                onDismissRequest = { expandedDropdown = false }
-            ) {
-                startMonthOptions.forEach { date ->
-                    DropdownMenuItem(
-                        text = { Text("${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}") },
-                        onClick = {
-                            selectedStartDate = date
-                            expandedDropdown = false
-                        }
-                    )
-                }
-            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // ПУНКТ 3: Сколько месяцев отображать в таблице
-        Text(text = "3. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
-        Spacer(modifier = Modifier.height(6.dp))
+            // Заголовки теперь ярко-белые и отлично читаются
+            Text(
+                text = "Добро пожаловать!",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                text = "Давай настроим параметры учета.",
+                fontSize = 16.sp,
+                color = Color(0xFF7A7D84),
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
 
-        val depthOptions = listOf(
-            1 to "Только текущий месяц",
-            2 to "Текущий и 1 предыдущий (всего 2)",
-            3 to "Текущий и 2 предыдущих (всего 3)"
-        )
-
-        depthOptions.forEach { (depth, label) ->
-            Row(
+            // Парящая карточка из матового темного стекла
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { selectedDepth = depth }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = selectedDepth == depth,
-                    onClick = { selectedDepth = depth },
-                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF4A7A64))
+                    .background(Color.Transparent)
+                    .border(androidx.compose.foundation.BorderStroke(1.2.dp, goldBorderGradient), RoundedCornerShape(24.dp)),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF1E2022).copy(alpha = 0.85f)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = label, fontSize = 15.sp)
-            }
-        }
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Кнопка сохранения
-        Button(
-            onClick = {
-                val salary = salaryText.toDoubleOrNull() ?: 0.0
-                if (salary > 0) {
-                    viewModel.completeOnboarding(
-                        salary = salary,
-                        startMonth = selectedStartDate.monthValue,
-                        startYear = selectedStartDate.year,
-                        depth = selectedDepth
+                    // 1. Ввод базовой зарплаты
+                    OutlinedTextField(
+                        value = salaryText,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
+                        label = { Text("Зарплата по умолчанию в месяц ($)") },
+                        placeholder = { Text("Например, 1500") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE5B067),
+                            focusedLabelColor = Color(0xFFE5B067),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                            unfocusedLabelColor = Color(0xFF7A7D84),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
                     )
-                    onFinished()
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 2. Выбор конкретного месяца начала учета
+                    Text(
+                        text = "2. Месяц начала отсчета:",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF7A7D84)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ExposedDropdownMenuBox(
+                        expanded = expandedDropdown,
+                        onExpandedChange = { expandedDropdown = !expandedDropdown }
+                    ) {
+                        OutlinedTextField(
+                            value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFE5C07B),
+                                focusedLabelColor = Color(0xFFE5C07B),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                unfocusedLabelColor = Color(0xFF7A7D84),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedDropdown,
+                            onDismissRequest = { expandedDropdown = false },
+                            modifier = Modifier.background(Color(0xFF1E2022)) // Темный фон для выпадающего меню
+                        ) {
+                            startMonthOptions.forEach { date ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
+                                            color = Color.White
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedStartDate = date
+                                        expandedDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 3. Сколько месяцев отображать в истории
+                    Text(
+                        text = "3. Сколько месяцев выводить в таблицу?",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF7A7D84)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val depthOptions = listOf(
+                        1 to "Только текущий месяц",
+                        2 to "Текущий и 1 предыдущий (всего 2)",
+                        3 to "Текущий и 2 предыдущих (всего 3)"
+                    )
+
+                    depthOptions.forEach { (depth, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedDepth = depth }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedDepth == depth,
+                                onClick = { selectedDepth = depth },
+                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFE5B067))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = label, fontSize = 15.sp, color = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Благородная золотая кнопка с темным текстом
+                    Button(
+                        onClick = {
+                            val salary = salaryText.toDoubleOrNull() ?: 0.0
+                            if (salary > 0)
+                            {
+                                viewModel.completeOnboarding(salary = salary,startMonth = selectedStartDate.monthValue,
+                                    startYear = selectedStartDate.year,
+                                    depth = selectedDepth)
+                                onFinished()
+                            }
+                                  },
+                        modifier = Modifier.fillMaxWidth().
+                        height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5B067)),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp))
+                    {
+                        Text(
+                        text = "Начать работу",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111214)
+                        )
+                    }
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A7A64))
-        ) {
-            Text("Начать работу", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

@@ -5,7 +5,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+
+
+// Главный фон приложения (глубокий бархатный черный)
+val AppDarkBackground = Color(0xFF111214)
+
+// Матовое темное стекло для карточек (полупрозрачный графит)
+val DarkGlassColor = Color(0xFF1E2022).copy(alpha = 0.85f)
+
+// Цвета текстов и акцентов из макета
+val GoldAccent = Color(0xFFE5B067)       // Насыщенное золото для долга
+val EmeraldAccent = Color(0xFF438A6E)    // Изумрудный для выплаченной зарплаты
+val GrayText = Color(0xFF7A7D84)         // Серый для подписей годов и заголовков
+
+// Тонкие благородные градиенты для золотых обводок карточек
+val GoldBorderGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFFE5B067).copy(alpha = 0.6f), Color(0xFF9E7743).copy(alpha = 0.2f))
+)
+val NormalBorderGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFFFFFFFF).copy(alpha = 0.15f), Color(0xFFFFFFFF).copy(alpha = 0.03f))
+)
+
 
 // 1. Палитра для ТЁМНОЙ ТЕМЫ (из твоего нового рендера)
 private val DarkColorScheme = darkColorScheme(

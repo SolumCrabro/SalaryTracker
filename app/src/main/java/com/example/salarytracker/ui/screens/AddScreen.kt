@@ -2,15 +2,23 @@ package com.example.salarytracker.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.DatePicker
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -22,28 +30,21 @@ import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
-import android.widget.Toast
 
 @Composable
-fun AddScreen(viewModel: SalaryViewModel = viewModel()) { // Подключаем ViewModel по умолчанию
-    // Состояние для хранения введенной суммы
+fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     var amountText by remember { mutableStateOf("") }
-
-    // Состояние для хранения выбранной даты (по умолчанию сегодня)
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedPaymentType by remember { mutableStateOf("CARD") }
 
-    // Форматтер для красивого отображения даты (например, "14.07.2026")
+    val isDark = isSystemInDarkTheme()
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-
-    // Контекст нужен для вызова системного диалога календаря
     val context = LocalContext.current
 
-    // Логика настройки системного календаря Android
     val calendar = Calendar.getInstance()
     val datePickerDialog = DatePickerDialog(
         context,
         { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
-            // Месяцы в Calendar начинаются с 0, поэтому прибавляем 1
             selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
         },
         calendar.get(Calendar.YEAR),
@@ -51,92 +52,162 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) { // Подключае�
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    Column(
+    val borderStroke = if (isDark) {
+        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067)))
+    }
+
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
+    val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+    val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
+    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.Start
+            .background(mainBgColor)
     ) {
-        // Большой заголовок экрана
-        Text(
-            text = "Внесение средств",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 24.dp),
-            color = Color(0xFF2C3E50)
-        )
-
-        // 1. Поле ввода суммы денег
-        OutlinedTextField(
-            value = amountText,
-            onValueChange = { newValue ->
-                // Разрешаем вводить только цифры (и одну точку для копеек, если нужно)
-                if (newValue.all { it.isDigit() || it == '.' }) {
-                    amountText = newValue
-                }
-            },
-            label = { Text("Сумма поступления ($)") },
-            placeholder = { Text("Например, 500") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Открывает цифровую клавиатуру
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2. Поле выбора даты (выглядит как текстовое поле, но при клике открывает календарь)
-        OutlinedTextField(
-            value = selectedDate.format(dateFormatter),
-            onValueChange = {},
-            label = { Text("Дата выплаты") },
-            readOnly = true, // Запрещаем ручной ввод с клавиатуры
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = "Выбрать дату",
-                    modifier = Modifier.clickable { datePickerDialog.show() }
-                )
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable { datePickerDialog.show() } // Открытие календаря по тапу на любое место поля
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 3. Кнопка сохранения данных
-        Button(
-            onClick = {
-
-                val amount = amountText.toDoubleOrNull() ?: 0.0
-                if (amount > 0) {
-                    // Вызываем метод ViewModel для сохранения в базу данных!
-                    viewModel.addTransaction(amount, selectedDate)
-
-                    // Очищаем форму и сбрасываем дату на текущую
-                    amountText = ""
-                    selectedDate = LocalDate.now()
-
-                    // Показываем пользователю всплывающее уведомление об успехе
-                    Toast.makeText(context, "Данные успешно сохранены!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Пожалуйста, введите корректную сумму", Toast.LENGTH_SHORT).show()
-
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4A7A64) // Зеленоватый оттенок, как у зарплаты на главном экране
-            )
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.Start
         ) {
             Text(
-                text = "Сохранить",
-                fontSize = 18.sp,
+                text = "Внесение средств",
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
+                color = mainTextColor
             )
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.5.dp, borderStroke, RoundedCornerShape(24.dp)),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { newValue ->
+                            if (newValue.all { it.isDigit() || it == '.' }) amountText = newValue
+                        },
+                        label = { Text("Сумма поступления ($)") },
+                        placeholder = { Text("Например, 500") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = buttonColor,
+                            focusedLabelColor = buttonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = mainTextColor,
+                            unfocusedTextColor = mainTextColor
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    OutlinedTextField(
+                        value = selectedDate.format(dateFormatter),
+                        onValueChange = {},
+                        label = { Text("Дата выплаты") },
+                        readOnly = true,
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = "Выбрать дату",
+                                tint = buttonColor,
+                                modifier = Modifier.clickable { datePickerDialog.show() }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { datePickerDialog.show() },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = buttonColor,
+                            focusedLabelColor = buttonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = mainTextColor,
+                            unfocusedTextColor = mainTextColor
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Куда поступили средства?",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = labelTextColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.clickable { selectedPaymentType = "CARD" },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedPaymentType == "CARD",
+                                onClick = { selectedPaymentType = "CARD" },
+                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
+                            )
+                            Text(text = "На карту", fontSize = 15.sp, color = mainTextColor)
+                        }
+
+                        Spacer(modifier = Modifier.width(32.dp))
+
+                        Row(
+                            modifier = Modifier.clickable { selectedPaymentType = "CASH" },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedPaymentType == "CASH",
+                                onClick = { selectedPaymentType = "CASH" },
+                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
+                            )
+                            Text(text = "Наличные", fontSize = 15.sp, color = mainTextColor)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Button(
+                        onClick = {
+                            val amount = amountText.toDoubleOrNull() ?: 0.0
+                            if (amount > 0) {
+                                viewModel.addTransaction(amount, selectedDate, selectedPaymentType)
+                                amountText = ""
+                                selectedDate = LocalDate.now()
+                                Toast.makeText(context, "Данные успешно сохранены!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Пожалуйста, введите корректную сумму", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else 4.dp)
+                    ) {
+                        Text("Сохранить", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFF111214) else Color.White)
+                    }
+                }
+            }
         }
     }
 }

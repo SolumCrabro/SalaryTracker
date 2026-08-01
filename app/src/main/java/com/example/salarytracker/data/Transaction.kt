@@ -9,21 +9,17 @@ import java.time.format.DateTimeFormatter
 @Entity(tableName = "salary_transactions")
 data class Transaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val amount: Double,       // Сумма поступления
-    val date: LocalDate       // Дата выплаты
+    val amount: Double,
+    val date: LocalDate,
+    val paymentType: String // НОВОЕ ПОЛЕ: "CARD" или "CASH"
 )
 
-// Конвертер, чтобы Room умел сохранять LocalDate в виде текста "YYYY-MM-DD"
 class DateConverter {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
     @TypeConverter
-    fun fromLocalDate(date: LocalDate?): String? {
-        return date?.format(formatter)
-    }
+    fun fromLocalDate(date: LocalDate?): String? = date?.format(formatter)
 
     @TypeConverter
-    fun toLocalDate(dateString: String?): LocalDate? {
-        return dateString?.let { LocalDate.parse(it, formatter) }
-    }
+    fun toLocalDate(dateString: String?): LocalDate? = dateString?.let { LocalDate.parse(it, formatter) }
 }

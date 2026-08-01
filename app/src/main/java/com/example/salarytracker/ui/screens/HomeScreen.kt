@@ -1,6 +1,8 @@
 package com.example.salarytracker.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,12 +26,11 @@ import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 @Composable
 fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
+    val isDark = isSystemInDarkTheme()
 
     val currentMonthInfo = monthlyData.find { it.isCurrentMonth }
     val currentMonthName = currentMonthInfo?.monthName ?: "Текущий"
 
-    // ВЫЧИСЛЕНИЕ ДЛЯ КАРТОЧКИ: Сумма долгов минус профицит текущего месяца.
-    // Если итог отрицательный — карточка автоматически переключится в режим зеленого профицита!
     val activeMonths = monthlyData.filter { it.isActive }
     val totalDebtValue = activeMonths.sumOf { it.debt }
     val currentMonthSurplus = currentMonthInfo?.surplus ?: 0.0
@@ -40,85 +41,94 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
     var inputSalaryText by remember { mutableStateOf("") }
 
-    Column(
+    // Чистый, приятный для глаз пастельный фон
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val headerTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp)
+            .background(mainBgColor)
     ) {
-        Text(
-            text = "Мои деньги",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color(0xFF2C3E50)
-        )
-
-        CurrentMonthCard(
-            monthName = currentMonthName,
-            totalDebt = finalCardBalance
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "ИСТОРИЯ",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            color = Color(0xFF2C3E50)
-        )
-
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(top = 16.dp)
         ) {
-            Text(text = "Месяц", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.weight(0.5f))
-            Text(text = "Остаток", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-            Text(text = "Зарплата", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-        }
+            Text(
+                text = "Мои деньги",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = headerTextColor
+            )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            items(monthlyData) { summary ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = summary.isActive) {
-                            selectedMonthSummary = summary
-                            inputSalaryText = summary.totalSalary.toInt().toString()
-                            showDialog = true
-                        }
-                ) {
-                    // Подменяем отображение остатка, если по месяцу есть профицит
-                    val hasSurplus = summary.surplus > 0
-                    val displayDebt = if (hasSurplus) 0.0 else summary.debt
+            CurrentMonthCard(monthName = currentMonthName, totalDebt = finalCardBalance)
 
-                    MonthRowItem(
-                        monthName = summary.monthName,
-                        // Если есть профицит — пишем его под годом для наглядности!
-                        subTitle = if (hasSurplus) "${summary.year} (Выплачено: ₽${String.format("%,.0f", summary.totalPaid)})" else summary.year.toString(),
-                        debt = displayDebt,
-                        salary = summary.totalSalary,
-                        isCurrentMonth = summary.isCurrentMonth,
-                        isActive = summary.isActive
-                    )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "ИСТОРИЯ",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                color = headerTextColor
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Месяц", fontSize = 12.sp, color = Color(0xFF7A7D84), modifier = Modifier.weight(1.3f))
+                Spacer(modifier = Modifier.weight(0.5f))
+                Text(text = "Остаток", fontSize = 12.sp, color = Color(0xFF7A7D84), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+                Text(text = "Зарплата", fontSize = 12.sp, color = Color(0xFF7A7D84), textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                items(monthlyData) { summary ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = summary.isActive) {
+                                selectedMonthSummary = summary
+                                inputSalaryText = summary.totalSalary.toInt().toString()
+                                showDialog = true
+                            }
+                    ) {
+                        val hasSurplus = summary.surplus > 0
+                        val displayDebt = if (hasSurplus) 0.0 else summary.debt
+
+                        MonthRowItem(
+                            monthName = summary.monthName,
+                            subTitle = summary.year.toString(),
+                            debt = displayDebt,
+                            salary = summary.totalSalary,
+                            isCurrentMonth = summary.isCurrentMonth,
+                            isActive = summary.isActive
+                        )
+                    }
                 }
             }
         }
     }
 
     if (showDialog && selectedMonthSummary != null) {
+        val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
+        val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
+        val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName}") },
+            containerColor = dialogBg,
+            titleContentColor = dialogTitle,
+            textContentColor = Color(0xFF7A7D84),
+            title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName}", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text(text = "Укажите плановый размер зарплаты на этот месяц:", fontSize = 14.sp, color = Color.Gray)
+                    Text(text = "Укажите плановый размер зарплаты на этот месяц:", fontSize = 14.sp, color = Color(0xFF7A7D84))
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = inputSalaryText,
@@ -128,7 +138,15 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                         label = { Text("Сумма ($)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = dialogButtonColor,
+                            focusedLabelColor = dialogButtonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = Color(0xFF7A7D84),
+                            focusedTextColor = dialogTitle,
+                            unfocusedTextColor = dialogTitle
+                        )
                     )
                 }
             },
@@ -141,14 +159,14 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                             showDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A7A64))
+                    colors = ButtonDefaults.buttonColors(containerColor = dialogButtonColor)
                 ) {
-                    Text("Сохранить")
+                    Text("Сохранить", color = if (isDark) Color(0xFF111214) else Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("Отмена", color = Color.Gray)
+                    Text("Отмена", color = dialogButtonColor)
                 }
             }
         )

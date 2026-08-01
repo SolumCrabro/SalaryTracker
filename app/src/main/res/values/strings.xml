@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">SalaryTracker</string>
+    <string name="title_activity_main_app">MainAppActivity</string>
 </resources>

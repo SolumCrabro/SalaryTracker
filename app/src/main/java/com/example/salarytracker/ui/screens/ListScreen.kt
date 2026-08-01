@@ -2,7 +2,10 @@ package com.example.salarytracker.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke // Добавлен этот импорт
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -31,107 +35,146 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val transactions by viewModel.allTransactions.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
 
-    // Состояния для управления диалогом удаления
     var showDeleteDialog by remember { mutableStateOf(false) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
+    var activeDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
 
-    // Храним ссылку на стейт свайпа той карточки, которую сейчас планируем удалить
-    var currentDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
+    val itemBorderStroke = if (isDark) {
+        BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.02f))))
+    } else {
+        BorderStroke(1.dp, Color.Gray.copy(alpha = 0.2f))
+    }
 
-    Column(
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
+    val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+    val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp)
+            .background(mainBgColor)
     ) {
-        Text(
-            text = "История поступлений",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color(0xFF2C3E50)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 16.dp)
+        ) {
+            Text(
+                text = "История поступлений",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = mainTextColor
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        if (transactions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                items(transactions, key = { it.id }) { transaction ->
-
-                    val dismissState = rememberSwipeToDismissBoxState()
-
-                    // Безопасный перехват свайпа: отслеживаем целевое значение анимации (targetValue)
-                    if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart && transactionToDelete == null && !showDeleteDialog) {
-                        transactionToDelete = transaction
-                        currentDismissState = dismissState
-                        showDeleteDialog = true
+            if (transactions.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        border = itemBorderStroke,
+                        colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Text(
+                            text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
+                            fontSize = 16.sp,
+                            color = mainTextColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp)
+                        )
                     }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    items(transactions, key = { it.id }) { transaction ->
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false, // Запрещаем свайп вправо
-                        enableDismissFromEndToStart = true,  // Только влево
-                        backgroundContent = {
-                            val color by animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFC78165)
-                                    else -> Color.Transparent
+                        // ИСПРАВЛЕНИЕ: Переименовали внутреннюю переменную в currentDismissState
+                        val currentDismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { dismissValue ->
+                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                    transactionToDelete = transaction
+                                    showDeleteDialog = true
+                                    false
+                                } else {
+                                    false
                                 }
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                                    .background(color, RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Удалить",
-                                    tint = Color.White,
-                                    modifier = Modifier.padding(end = 16.dp)
-                                )
                             }
-                        },
-                        content = {
-                            TransactionRowItem(transaction = transaction)
+                        )
+
+                        if (transactionToDelete == transaction) {
+                            activeDismissState = currentDismissState
                         }
-                    )
+
+                        val isCurrentSwiped = currentDismissState.targetValue == SwipeToDismissBoxValue.EndToStart
+
+                        SwipeToDismissBox(
+                            state = currentDismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val color by animateColorAsState(
+                                    if (isCurrentSwiped) Color(0xFFC78165) else Color.Transparent
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .background(color, RoundedCornerShape(16.dp)),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    if (isCurrentSwiped) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Удалить",
+                                            tint = Color.White,
+                                            modifier = Modifier.padding(end = 16.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            content = {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = itemBorderStroke,
+                                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                                ) {
+                                    TransactionRowItem(transaction = transaction)
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 
-    // --- ДИАЛОГ ПОДТВЕРЖДЕНИЯ УДАЛЕНИЯ ---
     if (showDeleteDialog && transactionToDelete != null) {
         AlertDialog(
             onDismissRequest = {
                 showDeleteDialog = false
-                coroutineScope.launch { currentDismissState?.reset() } // Плавный возврат карточки на место
+                coroutineScope.launch { activeDismissState?.reset() }
                 transactionToDelete = null
-                currentDismissState = null
+                activeDismissState = null
             },
-            title = { Text(text = "Удаление платежа") },
+            containerColor = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF),
+            titleContentColor = mainTextColor,
+            textContentColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60),
+            title = { Text(text = "Удаление платежа", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму ₽${String.format("%,.0f", transactionToDelete!!.amount)}?",
+                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format(java.util.Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
                     fontSize = 15.sp
                 )
             },
@@ -141,27 +184,24 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                         viewModel.deleteTransaction(transactionToDelete!!)
                         showDeleteDialog = false
                         transactionToDelete = null
-                        currentDismissState = null
+                        activeDismissState = null
                         Toast.makeText(context, "Платеж успешно удален", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC78165))
                 ) {
-                    Text("Удалить")
+                    Text("Удалить", color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        // Мягко возвращаем карточку назад на экран с помощью встроенного метода .reset()
-                        coroutineScope.launch {
-                            currentDismissState?.reset()
-                            transactionToDelete = null
-                            currentDismissState = null
-                        }
+                        coroutineScope.launch { activeDismissState?.reset() }
+                        transactionToDelete = null
+                        activeDismissState = null
                     }
                 ) {
-                    Text("Отмена", color = Color.Gray)
+                    Text("Отмена", color = dialogButtonColor)
                 }
             }
         )

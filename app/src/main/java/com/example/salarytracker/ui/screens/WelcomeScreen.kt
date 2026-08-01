@@ -1,5 +1,10 @@
 package com.example.salarytracker.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,12 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -33,11 +41,18 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     val now = LocalDate.now()
     val ruLocale = Locale("ru")
     val isDark = isSystemInDarkTheme()
+    val localCoroutineScope = rememberCoroutineScope()
 
     val startMonthOptions = (0..3).map { now.minusMonths(it.toLong()) }
     var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) }
     var expandedDropdown by remember { mutableStateOf(false) }
     var selectedDepth by remember { mutableStateOf(3) }
+
+    // Триггер для запуска анимации появления всего экрана
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
 
     val borderStroke = if (isDark) {
         BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f))))
@@ -66,52 +81,41 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(text = "Добро пожаловать!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = mainTextColor)
-            Text(text = "Давай настроим параметры учета.", fontSize = 16.sp, color = labelTextColor, modifier = Modifier.padding(bottom = 24.dp))
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(borderStroke, RoundedCornerShape(24.dp)),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBgColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+            // 1. АНИМАЦИЯ ТЕКСТА: Плавное проявление за 500мс
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(500))
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column {
+                    Text(text = "Добро пожаловать!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = mainTextColor)
+                    Text(text = "Давай настроим параметры учета.", fontSize = 16.sp, color = labelTextColor, modifier = Modifier.padding(bottom = 24.dp))
+                }
+            }
 
-                    OutlinedTextField(
-                        value = salaryText,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-                        label = { Text("Зарплата по умолчанию в месяц ($)") },
-                        placeholder = { Text("Например, 1500") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = buttonColor,
-                            focusedLabelColor = buttonColor,
-                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
-                            unfocusedLabelColor = labelTextColor,
-                            focusedTextColor = mainTextColor,
-                            unfocusedTextColor = mainTextColor
-                        )
-                    )
+            // 2. АНИМАЦИЯ КАРТОЧКИ: Карточка мягко выплывает снизу вверх за 600мс
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(600)) +
+                        slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 4 })
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(borderStroke, RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(text = "2. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    ExposedDropdownMenuBox(
-                        expanded = expandedDropdown,
-                        onExpandedChange = { expandedDropdown = !expandedDropdown }
-                    ) {
                         OutlinedTextField(
-                            value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            value = salaryText,
+                            onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
+                            label = { Text("Зарплата по умолчанию в месяц ($)") },
+                            placeholder = { Text("Например, 1500") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = buttonColor,
                                 focusedLabelColor = buttonColor,
@@ -121,80 +125,127 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                                 unfocusedTextColor = mainTextColor
                             )
                         )
-                        ExposedDropdownMenu(
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(text = "2. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        ExposedDropdownMenuBox(
                             expanded = expandedDropdown,
-                            onDismissRequest = { expandedDropdown = false },
-                            modifier = Modifier.background(cardBgColor)
+                            onExpandedChange = { expandedDropdown = !expandedDropdown }
                         ) {
-                            startMonthOptions.forEach { date ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = "${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
-                                            color = mainTextColor
-                                        )
-                                    },
-                                    onClick = {
-                                        selectedStartDate = date
-                                        expandedDropdown = false
-                                    }
+                            OutlinedTextField(
+                                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = buttonColor,
+                                    focusedLabelColor = buttonColor,
+                                    unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                                    unfocusedLabelColor = labelTextColor,
+                                    focusedTextColor = mainTextColor,
+                                    unfocusedTextColor = mainTextColor
                                 )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(text = "3. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val depthOptions = listOf(
-                        1 to "Только текущий месяц",
-                        2 to "Текущий и 1 предыдущий (всего 2)",
-                        3 to "Текущий и 2 предыдущих (всего 3)"
-                    )
-
-                    depthOptions.forEach { (depth, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedDepth = depth }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedDepth == depth,
-                                onClick = { selectedDepth = depth },
-                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = label, fontSize = 15.sp, color = mainTextColor)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    Button(
-                        onClick = {
-                            val salary = salaryText.toDoubleOrNull() ?: 0.0
-                            if (salary > 0) {
-                                viewModel.completeOnboarding(
-                                    salary = salary,
-                                    startMonth = selectedStartDate.monthValue,
-                                    startYear = selectedStartDate.year,
-                                    depth = selectedDepth
-                                )
-                                onFinished()
+                            ExposedDropdownMenu(
+                                expanded = expandedDropdown,
+                                onDismissRequest = { expandedDropdown = false },
+                                modifier = Modifier.background(cardBgColor)
+                            ) {
+                                startMonthOptions.forEach { date ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = "${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
+                                                color = mainTextColor
+                                            )
+                                        },
+                                        onClick = {
+                                            selectedStartDate = date
+                                            expandedDropdown = false
+                                        }
+                                    )
+                                }
                             }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else 4.dp)
-                    ) {Text(text = "Начать работу", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if
-                            (isDark) Color(0xFF111214) else Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(text = "3. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val depthOptions = listOf(
+                            1 to "Только текущий месяц",
+                            2 to "Текущий и 1 предыдущий (всего 2)",
+                            3 to "Текущий and 2 предыдущих (всего 3)"
+                        )
+
+                        // 3. КАСКАДНАЯ АНИМАЦИЯ РАДИОКНОПОК: Появляются друг за другом
+                        depthOptions.forEachIndexed { index, (depth, label) ->
+                            val radioAlpha = remember { Animatable(0f) }
+                            val radioOffsetY = remember { Animatable(15f) }
+
+                            LaunchedEffect(Unit) {
+                                // Задержка зависит от порядкового номера радиокнопки
+                                delay(400L + (index * 70L))
+                                localCoroutineScope.launch {
+                                    radioAlpha.animateTo(1f, animationSpec = tween(300))
+                                }
+                                localCoroutineScope.launch {
+                                    radioOffsetY.animateTo(0f, animationSpec = tween(300))
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        alpha = radioAlpha.value
+                                        translationY = radioOffsetY.value
+                                    }
+                                    .clickable { selectedDepth = depth }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedDepth == depth,
+                                    onClick = { selectedDepth = depth },
+                                    colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = label, fontSize = 15.sp, color = mainTextColor)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        Button(
+                            onClick = {
+                                val salary = salaryText.toDoubleOrNull() ?: 0.0
+                                if (salary > 0) {
+                                    viewModel.completeOnboarding(
+                                        salary = salary,
+                                        startMonth = selectedStartDate.monthValue,
+                                        startYear = selectedStartDate.year,
+                                        depth = selectedDepth
+                                    )
+                                    onFinished()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth().
+                                height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else
+                                4.dp)
+                        ) {
+                            Text(text = "Начать работу", fontSize = 18.sp, fontWeight = FontWeight.Bold, color =
+                                if (isDark) Color(0xFF111214) else Color.White)
+                        }
                     }
                 }
             }

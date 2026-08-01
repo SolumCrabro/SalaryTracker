@@ -3,6 +3,12 @@ package com.example.salarytracker.ui.screens
 import android.app.DatePickerDialog
 import android.widget.DatePicker
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +58,12 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
+    // Триггер для плавной анимации появления всего экрана
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
     val borderStroke = if (isDark) {
         Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
     } else {
@@ -63,6 +75,10 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
     val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
+    // ОБНОВЛЕННЫЙ СПИСОК: 50 убрали, добавили больше градаций
+    val row1Templates = listOf(100, 200, 300)
+    val row2Templates = listOf(400, 500, 600)
 
     Box(
         modifier = Modifier
@@ -76,135 +92,252 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.Start
         ) {
-            Text(
-                text = "Внесение средств",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
-                color = mainTextColor
-            )
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.5.dp, borderStroke, RoundedCornerShape(24.dp)),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBgColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+            // Плавное проявление заголовка
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(500))
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    OutlinedTextField(
-                        value = amountText,
-                        onValueChange = { newValue ->
-                            if (newValue.all { it.isDigit() || it == '.' }) amountText = newValue
-                        },
-                        label = { Text("Сумма поступления ($)") },
-                        placeholder = { Text("Например, 500") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = buttonColor,
-                            focusedLabelColor = buttonColor,
-                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
-                            unfocusedLabelColor = labelTextColor,
-                            focusedTextColor = mainTextColor,
-                            unfocusedTextColor = mainTextColor
+                Text(
+                    text = "Внесение средств",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
+                    color = mainTextColor
+                )
+            }
+
+            // АНИМАЦИЯ ПОЯВЛЕНИЯ ФОРМЫ: Карточка мягко выплывает снизу за 550мс
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(550)) +
+                        slideInVertically(animationSpec = tween(550), initialOffsetY = { it / 4 })
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.5.dp, borderStroke, RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        // Поле ввода суммы
+                        OutlinedTextField(
+                            value = amountText,
+                            onValueChange = { newValue ->
+                                if (newValue.all { it.isDigit() || it == '.' }) amountText =
+                                    newValue
+                            },
+                            label = { Text("Сумма поступления ($)") },
+                            placeholder = { Text("Например, 500") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = buttonColor,
+                                focusedLabelColor = buttonColor,
+                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(
+                                    alpha = 0.4f
+                                ),
+                                unfocusedLabelColor = labelTextColor,
+                                focusedTextColor = mainTextColor,
+                                unfocusedTextColor = mainTextColor
+                            )
                         )
-                    )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    OutlinedTextField(
-                        value = selectedDate.format(dateFormatter),
-                        onValueChange = {},
-                        label = { Text("Дата выплаты") },
-                        readOnly = true,
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = "Выбрать дату",
-                                tint = buttonColor,
-                                modifier = Modifier.clickable { datePickerDialog.show() }
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { datePickerDialog.show() },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = buttonColor,
-                            focusedLabelColor = buttonColor,
-                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
-                            unfocusedLabelColor = labelTextColor,
-                            focusedTextColor = mainTextColor,
-                            unfocusedTextColor = mainTextColor
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Куда поступили средства?",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = labelTextColor
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier.clickable { selectedPaymentType = "CARD" },
-                            verticalAlignment = Alignment.CenterVertically
+                        // НОВАЯ СЕТКА КНОПОК: Два аккуратных ряда по три кнопки
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            RadioButton(
-                                selected = selectedPaymentType == "CARD",
-                                onClick = { selectedPaymentType = "CARD" },
-                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
-                            )
-                            Text(text = "На карту", fontSize = 15.sp, color = mainTextColor)
-                        }
+                            // Ряд 1: 100, 200, 300
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row1Templates.forEach { amount ->
+                                    val isSelected = amountText == amount.toString()
 
-                        Spacer(modifier = Modifier.width(32.dp))
+                                    // Плавная кодовая анимация цвета при клике
+                                    val animatedBorderColor by animateColorAsState(
+                                        if (isSelected) buttonColor else Color.Gray.copy(
+                                            alpha = 0.4f
+                                        )
+                                    )
+                                    val animatedTextColor by animateColorAsState(if (isSelected) buttonColor else labelTextColor)
+                                    val animatedBgColor by animateColorAsState(
+                                        if (isSelected) buttonColor.copy(
+                                            alpha = 0.12f
+                                        ) else Color.Transparent
+                                    )
 
-                        Row(
-                            modifier = Modifier.clickable { selectedPaymentType = "CASH" },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedPaymentType == "CASH",
-                                onClick = { selectedPaymentType = "CASH" },
-                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
-                            )
-                            Text(text = "Наличные", fontSize = 15.sp, color = mainTextColor)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    Button(
-                        onClick = {
-                            val amount = amountText.toDoubleOrNull() ?: 0.0
-                            if (amount > 0) {
-                                viewModel.addTransaction(amount, selectedDate, selectedPaymentType)
-                                amountText = ""
-                                selectedDate = LocalDate.now()
-                                Toast.makeText(context, "Данные успешно сохранены!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Пожалуйста, введите корректную сумму", Toast.LENGTH_SHORT).show()
+                                    OutlinedButton(
+                                        onClick = { amountText = amount.toString() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, animatedBorderColor),
+                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = animatedBgColor),
+                                        contentPadding = PaddingValues(horizontal = 8.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = "+$$amount",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = animatedTextColor
+                                        )
+                                    }
+                                }
                             }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else 4.dp)
-                    ) {
-                        Text("Сохранить", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFF111214) else Color.White)
+
+                            // Ряд 2: 400, 500, 600
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row2Templates.forEach { amount ->
+                                    val isSelected = amountText == amount.toString()
+
+                                    val animatedBorderColor by animateColorAsState(
+                                        if (isSelected) buttonColor else Color.Gray.copy(
+                                            alpha = 0.4f
+                                        )
+                                    )
+                                    val animatedTextColor by animateColorAsState(if (isSelected) buttonColor else labelTextColor)
+                                    val animatedBgColor by animateColorAsState(
+                                        if (isSelected) buttonColor.copy(
+                                            alpha = 0.12f
+                                        ) else Color.Transparent
+                                    )
+
+                                    OutlinedButton(
+                                        onClick = { amountText = amount.toString() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, animatedBorderColor),
+                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = animatedBgColor),
+                                        contentPadding = PaddingValues(horizontal = 8.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = "+$$amount",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color
+                                            = animatedTextColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(18.dp))
+// Поле выбора даты
+                        OutlinedTextField(
+                            value = selectedDate.format(dateFormatter),
+                            onValueChange = {},
+                            label = { Text("Дата выплаты") },
+                            readOnly = true,
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = "Выбрать дату",
+                                    tint = buttonColor,
+                                    modifier = Modifier.clickable { datePickerDialog.show() }
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { datePickerDialog.show() },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = buttonColor,
+                                focusedLabelColor = buttonColor,
+                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else
+                                    Color.Gray.copy(alpha = 0.4f),
+                                unfocusedLabelColor = labelTextColor,
+                                focusedTextColor = mainTextColor,
+                                unfocusedTextColor = mainTextColor
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Куда поступили средства?",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = labelTextColor
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.clickable { selectedPaymentType = "CARD" },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedPaymentType == "CARD",
+                                    onClick = { selectedPaymentType = "CARD" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
+                                )
+                                Text(text = "На карту", fontSize = 15.sp, color = mainTextColor)
+                            }
+                            Spacer(
+                                modifier = Modifier.width(32.dp)
+                            )
+                            Row(
+                                modifier = Modifier.clickable { selectedPaymentType = "CASH" },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedPaymentType == "CASH",
+                                    onClick = { selectedPaymentType = "CASH" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
+                                )
+                                Text(text = "Наличные", fontSize = 15.sp, color = mainTextColor)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Button(
+                            onClick = {
+                                val amount = amountText.toDoubleOrNull() ?: 0.0
+                                if (amount > 0) {
+                                    viewModel.addTransaction(
+                                        amount,
+                                        selectedDate,
+                                        selectedPaymentType
+                                    )
+                                    amountText = ""
+                                    selectedDate = LocalDate.now()
+                                    Toast.makeText(
+                                        context, "Данные успешно сохранены!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context, "Пожалуйста, введите корректную сумму",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = if (isDark) 0.dp else
+                                    4.dp
+                            )
+                        ) {
+                            Text(
+                                "Сохранить",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark)
+                                    Color(0xFF111214) else Color.White
+                            )
+                        }
                     }
                 }
             }

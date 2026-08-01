@@ -2,13 +2,15 @@ package com.example.salarytracker.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.BorderStroke // Добавлен этот импорт
+import androidx.compose.animation.core.Animatable // Добавлен для контроля анимации строк
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed // Изменили на itemsIndexed для каскадного эффекта
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer // Добавлен для применения эффектов сдвига и альфы
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.data.Transaction
 import com.example.salarytracker.ui.components.TransactionRowItem
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +41,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
     val isDark = isSystemInDarkTheme()
 
+    // Состояния для управления диалогом удаления
     var showDeleteDialog by remember { mutableStateOf(false) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     var activeDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
@@ -94,9 +99,26 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    items(transactions, key = { it.id }) { transaction ->
+                    // Используем itemsIndexed вместо обычного items для анимации
+                    itemsIndexed(transactions, key = { _, transaction -> transaction.id }) { index, transaction ->
 
-                        // ИСПРАВЛЕНИЕ: Переименовали внутреннюю переменную в currentDismissState
+                        // НЕЗАВИСИМЫЕ АНИМАТОРЫ СТРОКИ: Создаются заново для каждого элемента
+                        val itemAlpha = remember { Animatable(0f) }
+                        val itemOffsetY = remember { Animatable(40f) } // Изначально плашка утоплена вниз на 40dp
+
+                        // Триггер запуска анимации «волны» при загрузке данных
+                        LaunchedEffect(transactions) {
+                            // Задержка вычисляется динамически по индексу: 1-я строчка вылетит на 60мс позже 0-й
+                            delay(100L + (index * 60L))
+
+                            coroutineScope.launch {
+                                itemAlpha.animateTo(1f, animationSpec = tween(350))
+                            }
+                            coroutineScope.launch {
+                                itemOffsetY.animateTo(0f, animationSpec = tween(350))
+                            }
+                        }
+
                         val currentDismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { dismissValue ->
                                 if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
@@ -115,45 +137,55 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
 
                         val isCurrentSwiped = currentDismissState.targetValue == SwipeToDismissBoxValue.EndToStart
 
-                        SwipeToDismissBox(
-                            state = currentDismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
-                            backgroundContent = {
-                                val color by animateColorAsState(
-                                    if (isCurrentSwiped) Color(0xFFC78165) else Color.Transparent
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                                        .background(color, RoundedCornerShape(16.dp)),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    if (isCurrentSwiped) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Удалить",
-                                            tint = Color.White,
-                                            modifier = Modifier.padding(end = 16.dp)
-                                        )
+                        // Оборачиваем айтем в Box с модификатором graphicsLayer для применения плавной анимации
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    alpha = itemAlpha.value          // Связываем прозрачность с аниматором
+                                    translationY = itemOffsetY.value // Связываем сдвиг по вертикали с аниматором
+                                }
+                        ) {
+                            SwipeToDismissBox(
+                                state = currentDismissState,
+                                enableDismissFromStartToEnd = false,
+                                enableDismissFromEndToStart = true,
+                                backgroundContent = {
+                                    val color by animateColorAsState(
+                                        if (isCurrentSwiped) Color(0xFFC78165) else Color.Transparent
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .background(color, RoundedCornerShape(16.dp)),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        if (isCurrentSwiped) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Удалить",
+                                                tint = Color.White,
+                                                modifier = Modifier.padding(end = 16.dp)
+                                            )
+                                        }
+                                    }
+                                },
+                                content = {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        border = itemBorderStroke,
+                                        colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                                    ) {
+                                        TransactionRowItem(transaction = transaction)
                                     }
                                 }
-                            },
-                            content = {
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    shape = RoundedCornerShape(16.dp),
-                                    border = itemBorderStroke,
-                                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
-                                ) {
-                                    TransactionRowItem(transaction = transaction)
-                                }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -174,8 +206,8 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
             title = { Text(text = "Удаление платежа", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format(java.util.Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
-                    fontSize = 15.sp
+                    text = "Вы уверены, что хотите удалить платеж на сумму$ ${String.format(java.util.Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
+                fontSize = 15.sp
                 )
             },
             confirmButton = {

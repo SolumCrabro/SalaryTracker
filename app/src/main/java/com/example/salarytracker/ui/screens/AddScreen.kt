@@ -3,22 +3,21 @@ package com.example.salarytracker.ui.screens
 import android.app.DatePickerDialog
 import android.widget.DatePicker
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +37,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var selectedPaymentType by remember { mutableStateOf("CARD") }
 
+    val isDark = isSystemInDarkTheme()
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val context = LocalContext.current
 
@@ -52,30 +52,23 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    // Градиент для золотой рамки карточки
-    val goldBorderGradient = Brush.linearGradient(
-        colors = listOf(Color(0xFFE5B067).copy(alpha = 0.4f), Color(0xFF9E7743).copy(alpha = 0.05f))
-    )
+    val borderStroke = if (isDark) {
+        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067)))
+    }
 
-    // Главный контейнер с кодовым неоновым фоном
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
+    val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+    val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
+    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF111214)) // Глубокий черный
+            .background(mainBgColor)
     ) {
-        // Рисуем мягкое неоновое свечение кодом на фоне
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFE5B067).copy(alpha = 0.15f), Color.Transparent),
-                    center = Offset(size.width * 0.8f, size.height * 0.4f),
-                    radius = size.width * 0.6f
-                ),
-                radius = size.width * 0.6f,
-                center = Offset(size.width * 0.8f, size.height * 0.4f)
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -88,19 +81,16 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
-                color = Color.White
+                color = mainTextColor
             )
 
-            // Парящая карточка из матового темного стекла
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Transparent)
-                    .border(1.2.dp, goldBorderGradient, RoundedCornerShape(24.dp)),
+                    .border(1.5.dp, borderStroke, RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1E2022).copy(alpha = 0.85f)
-                )
+                colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     OutlinedTextField(
@@ -114,12 +104,12 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFFE5B067),
-                            focusedLabelColor = Color(0xFFE5B067),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                            unfocusedLabelColor = Color(0xFF7A7D84),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = buttonColor,
+                            focusedLabelColor = buttonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = mainTextColor,
+                            unfocusedTextColor = mainTextColor
                         )
                     )
 
@@ -134,7 +124,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             Icon(
                                 imageVector = Icons.Default.DateRange,
                                 contentDescription = "Выбрать дату",
-                                tint = Color(0xFFE5B067),
+                                tint = buttonColor,
                                 modifier = Modifier.clickable { datePickerDialog.show() }
                             )
                         },
@@ -142,12 +132,12 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             .fillMaxWidth()
                             .clickable { datePickerDialog.show() },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFFE5B067),
-                            focusedLabelColor = Color(0xFFE5B067),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                            unfocusedLabelColor = Color(0xFF7A7D84),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = buttonColor,
+                            focusedLabelColor = buttonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = mainTextColor,
+                            unfocusedTextColor = mainTextColor
                         )
                     )
 
@@ -157,7 +147,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                         text = "Куда поступили средства?",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF7A7D84)
+                        color = labelTextColor
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -173,9 +163,9 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             RadioButton(
                                 selected = selectedPaymentType == "CARD",
                                 onClick = { selectedPaymentType = "CARD" },
-                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFE5B067))
+                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
                             )
-                            Text(text = "На карту", fontSize = 15.sp, color = Color.White)
+                            Text(text = "На карту", fontSize = 15.sp, color = mainTextColor)
                         }
 
                         Spacer(modifier = Modifier.width(32.dp))
@@ -187,15 +177,14 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             RadioButton(
                                 selected = selectedPaymentType == "CASH",
                                 onClick = { selectedPaymentType = "CASH" },
-                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFE5B067))
+                                colors = RadioButtonDefaults.colors(selectedColor = buttonColor)
                             )
-                            Text(text = "Наличные", fontSize = 15.sp, color = Color.White)
+                            Text(text = "Наличные", fontSize = 15.sp, color = mainTextColor)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Финальная кодовая золотая кнопка
                     Button(
                         onClick = {
                             val amount = amountText.toDoubleOrNull() ?: 0.0
@@ -212,13 +201,10 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5B067)),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                    ) { Text("Сохранить",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111214)
-                    )
+                        colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else 4.dp)
+                    ) {
+                        Text("Сохранить", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFF111214) else Color.White)
                     }
                 }
             }

@@ -1,8 +1,8 @@
 package com.example.salarytracker.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,8 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,11 +26,11 @@ import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 @Composable
 fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
+    val isDark = isSystemInDarkTheme()
 
     val currentMonthInfo = monthlyData.find { it.isCurrentMonth }
     val currentMonthName = currentMonthInfo?.monthName ?: "Текущий"
 
-    // Вычисляем накопительный баланс для верхней карточки
     val activeMonths = monthlyData.filter { it.isActive }
     val totalDebtValue = activeMonths.sumOf { it.debt }
     val currentMonthSurplus = currentMonthInfo?.surplus ?: 0.0
@@ -43,46 +41,15 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
     var inputSalaryText by remember { mutableStateOf("") }
 
-    // Главный Box с фоном, нарисованным ЧИСТО КОДОМ
+    // Чистый, приятный для глаз пастельный фон
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val headerTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF111214)) // Глубокий черный фон
+            .background(mainBgColor)
     ) {
-        // Рисуем цветное неоновое свечение за карточками
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFE5B067).copy(alpha = 0.25f), Color.Transparent),
-                    center = Offset(size.width * 0.6f, size.height * 0.2f),
-                    radius = size.width * 0.5f
-                ),
-                radius = size.width * 0.5f,
-                center = Offset(size.width * 0.6f, size.height * 0.2f)
-            )
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFC78165).copy(alpha = 0.15f), Color.Transparent),
-                    center = Offset(size.width * 0.1f, size.height * 0.55f),
-                    radius = size.width * 0.4f
-                ),
-                radius = size.width * 0.4f,
-                center = Offset(size.width * 0.1f, size.height * 0.55f)
-            )
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF438A6E).copy(alpha = 0.15f), Color.Transparent),
-                    center = Offset(size.width * 0.9f, size.height * 0.5f),
-                    radius = size.width * 0.4f
-                ),
-                radius = size.width * 0.4f,
-                center = Offset(size.width * 0.9f, size.height * 0.5f)
-            )
-        }
-
-        // Интерфейс поверх кодового неонового фона
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -93,22 +60,19 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = Color.White
+                color = headerTextColor
             )
 
-            CurrentMonthCard(
-                monthName = currentMonthName,
-                totalDebt = finalCardBalance
-            )
+            CurrentMonthCard(monthName = currentMonthName, totalDebt = finalCardBalance)
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "История",
+                text = "ИСТОРИЯ",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                color = Color.White
+                color = headerTextColor
             )
 
             Row(
@@ -151,12 +115,15 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
         }
     }
 
-    // --- ОБНОВЛЕННЫЙ ПРЕМИАЛЬНЫЙ ТЕМНЫЙ ДИАЛОГ ИЗМЕНЕНИЯ ЗАРПЛАТЫ ---
     if (showDialog && selectedMonthSummary != null) {
+        val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
+        val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
+        val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            containerColor = Color(0xFF1E2022), // Матовое темное стекло кодом
-            titleContentColor = Color.White,
+            containerColor = dialogBg,
+            titleContentColor = dialogTitle,
             textContentColor = Color(0xFF7A7D84),
             title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName}", fontWeight = FontWeight.Bold) },
             text = {
@@ -173,12 +140,12 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFFE5B067), // Золотая обводка при клике
-                            focusedLabelColor = Color(0xFFE5B067),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                            focusedBorderColor = dialogButtonColor,
+                            focusedLabelColor = dialogButtonColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
                             unfocusedLabelColor = Color(0xFF7A7D84),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = dialogTitle,
+                            unfocusedTextColor = dialogTitle
                         )
                     )
                 }
@@ -192,14 +159,14 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                             showDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5B067)) // Золотая кнопка
+                    colors = ButtonDefaults.buttonColors(containerColor = dialogButtonColor)
                 ) {
-                    Text("Сохранить", color = Color(0xFF111214)) // Темный текст на золоте
+                    Text("Сохранить", color = if (isDark) Color(0xFF111214) else Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("Отмена", color = Color(0xFFE5B067)) // Золотой текст отмены
+                    Text("Отмена", color = dialogButtonColor)
                 }
             }
         )

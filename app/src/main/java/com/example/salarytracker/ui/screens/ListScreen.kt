@@ -2,9 +2,10 @@ package com.example.salarytracker.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke // Добавлен этот импорт
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -37,32 +35,28 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val transactions by viewModel.allTransactions.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     var activeDismissState by remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
 
-    val itemBorderGradient = Brush.linearGradient(
-        colors = listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.02f))
-    )
+    val itemBorderStroke = if (isDark) {
+        BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.02f))))
+    } else {
+        BorderStroke(1.dp, Color.Gray.copy(alpha = 0.2f))
+    }
+
+    val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
+    val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+    val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF111214))
+            .background(mainBgColor)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF438A6E).copy(alpha = 0.12f), Color.Transparent),
-                    center = Offset(size.width * 0.2f, size.height * 0.6f),
-                    radius = size.width * 0.5f
-                ),
-                radius = size.width * 0.5f,
-                center = Offset(size.width * 0.2f, size.height * 0.6f)
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -73,7 +67,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = Color.White
+                color = mainTextColor
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -82,13 +76,14 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Card(
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2022).copy(alpha = 0.8f)),
-                        modifier = Modifier.padding(24.dp).border(1.dp, itemBorderGradient, RoundedCornerShape(16.dp))
+                        border = itemBorderStroke,
+                        colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Text(
                             text = "Вы еще не вносили платежи.\nВсе ваши поступления будут отображаться здесь.",
                             fontSize = 16.sp,
-                            color = Color.White,
+                            color = mainTextColor,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(24.dp)
                         )
@@ -101,12 +96,11 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 ) {
                     items(transactions, key = { it.id }) { transaction ->
 
-                        val dismissState = rememberSwipeToDismissBoxState(
+                        // ИСПРАВЛЕНИЕ: Переименовали внутреннюю переменную в currentDismissState
+                        val currentDismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { dismissValue ->
                                 if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
                                     transactionToDelete = transaction
-                                    val dismissState = null
-                                    activeDismissState = dismissState
                                     showDeleteDialog = true
                                     false
                                 } else {
@@ -115,11 +109,14 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                             }
                         )
 
-                        // Проверяем сдвиг по целевому значению анимации
-                        val isCurrentSwiped = dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
+                        if (transactionToDelete == transaction) {
+                            activeDismissState = currentDismissState
+                        }
+
+                        val isCurrentSwiped = currentDismissState.targetValue == SwipeToDismissBoxValue.EndToStart
 
                         SwipeToDismissBox(
-                            state = dismissState,
+                            state = currentDismissState,
                             enableDismissFromStartToEnd = false,
                             enableDismissFromEndToStart = true,
                             backgroundContent = {
@@ -147,10 +144,11 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                                        .border(1.2.dp, itemBorderGradient, RoundedCornerShape(16.dp)),
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
                                     shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2022).copy(alpha = 0.85f))
+                                    border = itemBorderStroke,
+                                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
                                 ) {
                                     TransactionRowItem(transaction = transaction)
                                 }
@@ -170,13 +168,13 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 transactionToDelete = null
                 activeDismissState = null
             },
-            containerColor = Color(0xFF1E2022),
-            titleContentColor = Color.White,
-            textContentColor = Color(0xFF7A7D84),
+            containerColor = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF),
+            titleContentColor = mainTextColor,
+            textContentColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60),
             title = { Text(text = "Удаление платежа", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format("%,.0f", transactionToDelete!!.amount)}?",
+                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format(java.util.Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
                     fontSize = 15.sp
                 )
             },
@@ -198,15 +196,12 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        // Теперь .reset() плавно вернет карточку поверх коричневого фона!
-                        coroutineScope.launch {
-                            activeDismissState?.reset()
-                            transactionToDelete = null
-                            activeDismissState = null
-                        }
+                        coroutineScope.launch { activeDismissState?.reset() }
+                        transactionToDelete = null
+                        activeDismissState = null
                     }
                 ) {
-                    Text("Отмена", color = Color(0xFFE5B067))
+                    Text("Отмена", color = dialogButtonColor)
                 }
             }
         )

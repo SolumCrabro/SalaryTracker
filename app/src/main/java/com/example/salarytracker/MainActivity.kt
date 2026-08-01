@@ -33,18 +33,21 @@ import com.example.salarytracker.ui.screens.AddScreen
 import com.example.salarytracker.ui.screens.HomeScreen
 import com.example.salarytracker.ui.screens.ListScreen
 import com.example.salarytracker.ui.screens.WelcomeScreen
+import com.example.salarytracker.ui.theme.SalaryTrackerTheme
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Обертка темы приложения
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color(0xFF111214) // Гарантируем глубокий черный фон на самом нижнем слое системы
-            ) {
-                MainAppScreen()
+            SalaryTrackerTheme {
+                val isDark = isSystemInDarkTheme()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+                ) {
+                    MainAppScreen()
+                }
             }
         }
     }
@@ -57,6 +60,7 @@ fun MainAppScreen() {
     val salaryViewModel: SalaryViewModel = viewModel()
     val isFirstRun by salaryViewModel.isFirstRun.collectAsState()
     val items = listOf(Screen.Home, Screen.Add, Screen.List)
+    val isDark = isSystemInDarkTheme()
 
     if (isFirstRun == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -69,30 +73,30 @@ fun MainAppScreen() {
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute != Screen.Welcome.route
 
-    val goldGradient = Brush.linearGradient(
-        colors = listOf(Color(0xFFE5B067).copy(alpha = 0.5f), Color(0xFF9E7743).copy(alpha = 0.15f))
-    )
+    val goldGradient = if (isDark) {
+        Brush.linearGradient(listOf(Color(0xFFE5B067).copy(alpha = 0.5f), Color(0xFF9E7743).copy(alpha = 0.15f)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067))) // Сплошное золото для дня
+    }
+
+    // Чистый белый фон меню для светлой темы
+    val barBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.95f) else Color(0xFFFFFFFF)
 
     Scaffold(
-        // ИСПРАВЛЕНИЕ №1: Делаем контейнер Scaffold полностью прозрачным, чтобы углы не заливались серым
         containerColor = Color.Transparent,
         bottomBar = {
             if (showBottomBar) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(24.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                        .border(
-                            BorderStroke(1.2.dp, goldGradient),
-                            RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                        )
+                        .shadow(if (isDark) 0.dp else 12.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                        .border(BorderStroke(1.5.dp, goldGradient), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                         .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
-                    color = Color(0xFF1E2022).copy(alpha = 0.95f) // Матовое темное стекло
+                    color = barBgColor
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // ИСПРАВЛЕНИЕ №2: Перенесли отступ системной навигации строго внутрь панели
                             .navigationBarsPadding()
                             .padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
@@ -100,7 +104,11 @@ fun MainAppScreen() {
                     ) {
                         items.forEach { screen ->
                             val isSelected = currentRoute == screen.route
-                            val contentColor = if (isSelected) Color(0xFFE5B067) else Color(0xFF7A7D84)
+                            val contentColor = if (isSelected) {
+                                if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+                            } else {
+                                Color(0xFF7A7D84)
+                            }
 
                             Column(
                                 modifier = Modifier
@@ -125,7 +133,7 @@ fun MainAppScreen() {
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) Color(0xFFE5B067).copy(alpha = 0.12f) else Color.Transparent)
+                                        .background(if (isSelected) contentColor.copy(alpha = 0.12f) else Color.Transparent)
                                         .padding(horizontal = 16.dp, vertical = 6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -155,7 +163,6 @@ fun MainAppScreen() {
         NavHost(
             navController = navController,
             startDestination = if (isFirstRun == true) Screen.Welcome.route else Screen.Home.route,
-            // Используем innerPadding для контента, но обрезаем нижний отступ, так как меню парит
             modifier = Modifier.padding(
                 top = innerPadding.calculateTopPadding(),
                 bottom = innerPadding.calculateBottomPadding()

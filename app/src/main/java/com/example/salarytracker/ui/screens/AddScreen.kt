@@ -33,10 +33,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     var amountText by remember { mutableStateOf("") }
@@ -47,18 +49,12 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val context = LocalContext.current
 
-    val calendar = Calendar.getInstance()
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
-            selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
+    // Состояния для нового, стильного Material 3 календаря кодом
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     )
+    var showDatePickerState by remember { mutableStateOf(false) }
 
-    // Триггер для плавной анимации появления всего экрана
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         isVisible = true
@@ -76,7 +72,6 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
     val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
 
-    // ОБНОВЛЕННЫЙ СПИСОК: 50 убрали, добавили больше градаций
     val row1Templates = listOf(100, 200, 300)
     val row2Templates = listOf(400, 500, 600)
 
@@ -92,7 +87,6 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.Start
         ) {
-            // Плавное проявление заголовка
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(animationSpec = tween(500))
@@ -106,7 +100,6 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                 )
             }
 
-            // АНИМАЦИЯ ПОЯВЛЕНИЯ ФОРМЫ: Карточка мягко выплывает снизу за 550мс
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(animationSpec = tween(550)) +
@@ -121,12 +114,10 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                     elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
-                        // Поле ввода суммы
                         OutlinedTextField(
                             value = amountText,
                             onValueChange = { newValue ->
-                                if (newValue.all { it.isDigit() || it == '.' }) amountText =
-                                    newValue
+                                if (newValue.all { it.isDigit() || it == '.' }) amountText = newValue
                             },
                             label = { Text("Сумма поступления ($)") },
                             placeholder = { Text("Например, 500") },
@@ -136,9 +127,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = buttonColor,
                                 focusedLabelColor = buttonColor,
-                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(
-                                    alpha = 0.4f
-                                ),
+                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
                                 unfocusedLabelColor = labelTextColor,
                                 focusedTextColor = mainTextColor,
                                 unfocusedTextColor = mainTextColor
@@ -147,31 +136,19 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // НОВАЯ СЕТКА КНОПОК: Два аккуратных ряда по три кнопки
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Ряд 1: 100, 200, 300
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 row1Templates.forEach { amount ->
                                     val isSelected = amountText == amount.toString()
-
-                                    // Плавная кодовая анимация цвета при клике
-                                    val animatedBorderColor by animateColorAsState(
-                                        if (isSelected) buttonColor else Color.Gray.copy(
-                                            alpha = 0.4f
-                                        )
-                                    )
+                                    val animatedBorderColor by animateColorAsState(if (isSelected) buttonColor else Color.Gray.copy(alpha = 0.4f))
                                     val animatedTextColor by animateColorAsState(if (isSelected) buttonColor else labelTextColor)
-                                    val animatedBgColor by animateColorAsState(
-                                        if (isSelected) buttonColor.copy(
-                                            alpha = 0.12f
-                                        ) else Color.Transparent
-                                    )
+                                    val animatedBgColor by animateColorAsState(if (isSelected) buttonColor.copy(alpha = 0.12f) else Color.Transparent)
 
                                     OutlinedButton(
                                         onClick = { amountText = amount.toString() },
@@ -181,35 +158,20 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                         contentPadding = PaddingValues(horizontal = 8.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        Text(
-                                            text = "+$$amount",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = animatedTextColor
-                                        )
+                                        Text(text = "+$$amount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
                                     }
                                 }
                             }
 
-                            // Ряд 2: 400, 500, 600
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 row2Templates.forEach { amount ->
                                     val isSelected = amountText == amount.toString()
-
-                                    val animatedBorderColor by animateColorAsState(
-                                        if (isSelected) buttonColor else Color.Gray.copy(
-                                            alpha = 0.4f
-                                        )
-                                    )
+                                    val animatedBorderColor by animateColorAsState(if (isSelected) buttonColor else Color.Gray.copy(alpha = 0.4f))
                                     val animatedTextColor by animateColorAsState(if (isSelected) buttonColor else labelTextColor)
-                                    val animatedBgColor by animateColorAsState(
-                                        if (isSelected) buttonColor.copy(
-                                            alpha = 0.12f
-                                        ) else Color.Transparent
-                                    )
+                                    val animatedBgColor by animateColorAsState(if (isSelected) buttonColor.copy(alpha = 0.12f) else Color.Transparent)
 
                                     OutlinedButton(
                                         onClick = { amountText = amount.toString() },
@@ -219,19 +181,14 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                         contentPadding = PaddingValues(horizontal = 8.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        Text(
-                                            text = "+$$amount",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color
-                                            = animatedTextColor
-                                        )
+                                        Text(text = "+$$amount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
                                     }
                                 }
                             }
                         }
                         Spacer(modifier = Modifier.height(18.dp))
-// Поле выбора даты
+
+                        // Поле выбора даты
                         OutlinedTextField(
                             value = selectedDate.format(dateFormatter),
                             onValueChange = {},
@@ -242,23 +199,24 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                     imageVector = Icons.Default.DateRange,
                                     contentDescription = "Выбрать дату",
                                     tint = buttonColor,
-                                    modifier = Modifier.clickable { datePickerDialog.show() }
+                                    modifier = Modifier.clickable { showDatePickerState = true }
                                 )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { datePickerDialog.show() },
+                                .clickable { showDatePickerState = true },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = buttonColor,
                                 focusedLabelColor = buttonColor,
-                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else
-                                    Color.Gray.copy(alpha = 0.4f),
+                                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
                                 unfocusedLabelColor = labelTextColor,
                                 focusedTextColor = mainTextColor,
                                 unfocusedTextColor = mainTextColor
                             )
                         )
+
                         Spacer(modifier = Modifier.height(24.dp))
+
                         Text(
                             text = "Куда поступили средства?",
                             fontSize = 14.sp,
@@ -266,6 +224,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                             color = labelTextColor
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Start,
@@ -282,9 +241,9 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                 )
                                 Text(text = "На карту", fontSize = 15.sp, color = mainTextColor)
                             }
-                            Spacer(
-                                modifier = Modifier.width(32.dp)
-                            )
+
+                            Spacer(modifier = Modifier.width(32.dp))
+
                             Row(
                                 modifier = Modifier.clickable { selectedPaymentType = "CASH" },
                                 verticalAlignment = Alignment.CenterVertically
@@ -297,27 +256,20 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                 Text(text = "Наличные", fontSize = 15.sp, color = mainTextColor)
                             }
                         }
+
                         Spacer(modifier = Modifier.height(32.dp))
+
+                        // Главная кнопка отправки данных
                         Button(
                             onClick = {
                                 val amount = amountText.toDoubleOrNull() ?: 0.0
                                 if (amount > 0) {
-                                    viewModel.addTransaction(
-                                        amount,
-                                        selectedDate,
-                                        selectedPaymentType
-                                    )
+                                    viewModel.addTransaction(amount, selectedDate, selectedPaymentType)
                                     amountText = ""
                                     selectedDate = LocalDate.now()
-                                    Toast.makeText(
-                                        context, "Данные успешно сохранены!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    Toast.makeText(context, "Данные успешно сохранены!", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(
-                                        context, "Пожалуйста, введите корректную сумму",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    Toast.makeText(context, "Пожалуйста, введите корректную сумму", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier
@@ -325,22 +277,55 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                 .height(56.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = if (isDark) 0.dp else
-                                    4.dp
-                            )
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 0.dp else 4.dp)
                         ) {
-                            Text(
-                                "Сохранить",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark)
-                                    Color(0xFF111214) else Color.White
-                            )
+                            Text("Сохранить", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFF111214) else Color.White)
                         }
                     }
                 }
             }
+        }
+    }
+
+    // --- СТИЛЬНЫЙ АДАПТИВНЫЙ КАЛЕНДАРЬ MATERIAL 3 КОДОМ ---
+    if (showDatePickerState) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerState = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+                        showDatePickerState = false
+                    }
+                ) {
+                    Text("OK", color = buttonColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePickerState = false }) {
+                    Text("ОТМЕНА", color = Color.Gray)
+                }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = cardBgColor
+            )
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = cardBgColor,
+                    titleContentColor = mainTextColor,
+                    headlineContentColor = mainTextColor,
+                    weekdayContentColor = labelTextColor,
+                    subheadContentColor = labelTextColor,
+                    selectedDayContainerColor = buttonColor,
+                    selectedDayContentColor = if (isDark) Color(0xFF111214) else Color.White,
+                    todayContentColor = buttonColor,
+                    todayDateBorderColor = buttonColor
+                )
+            )
         }
     }
 }

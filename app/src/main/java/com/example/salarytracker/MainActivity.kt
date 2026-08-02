@@ -30,6 +30,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.salarytracker.navigation.Screen
 import com.example.salarytracker.ui.screens.AddScreen
+import com.example.salarytracker.ui.screens.AnalyticsScreen
 import com.example.salarytracker.ui.screens.HomeScreen
 import com.example.salarytracker.ui.screens.ListScreen
 import com.example.salarytracker.ui.screens.WelcomeScreen
@@ -59,7 +60,7 @@ fun MainAppScreen() {
     val navController = rememberNavController()
     val salaryViewModel: SalaryViewModel = viewModel()
     val isFirstRun by salaryViewModel.isFirstRun.collectAsState()
-    val items = listOf(Screen.Home, Screen.Add, Screen.List)
+    val items = listOf(Screen.Home, Screen.Analytics, Screen.Add, Screen.List)
     val isDark = isSystemInDarkTheme()
 
     if (isFirstRun == null) {
@@ -178,6 +179,7 @@ fun MainAppScreen() {
             composable(Screen.Home.route) { HomeScreen(viewModel = salaryViewModel) }
             composable(Screen.Add.route) { AddScreen(viewModel = salaryViewModel) }
             composable(Screen.List.route) { ListScreen(viewModel = salaryViewModel) }
+            composable(Screen.Analytics.route) { AnalyticsScreen(viewModel = salaryViewModel) }
         }
     }
 }

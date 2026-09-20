@@ -209,8 +209,8 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             confirmButton = {
                 Button(
                     onClick = {
-                        val newSalary = inputSalaryText.toDoubleOrNull() ?: 0.0
-                        if (newSalary > 0) {
+                        val newSalary = inputSalaryText.toDoubleOrNull()
+                        if (newSalary != null && newSalary >= 0) {
                             viewModel.updateSalaryForMonth(selectedMonthSummary!!.dbKey, newSalary)
                             showDialog = false
                         }

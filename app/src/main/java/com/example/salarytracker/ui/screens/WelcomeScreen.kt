@@ -180,7 +180,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                         val depthOptions = listOf(
                             1 to "Только текущий месяц",
                             2 to "Текущий и 1 предыдущий (всего 2)",
-                            3 to "Текущий and 2 предыдущих (всего 3)"
+                            3 to "Текущий и 2 предыдущих (всего 3)"
                         )
 
                         // 3. КАСКАДНАЯ АНИМАЦИЯ РАДИОКНОПОК: Появляются друг за другом

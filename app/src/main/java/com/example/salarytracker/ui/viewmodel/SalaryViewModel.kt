@@ -59,39 +59,50 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
 
         val now = LocalDate.now()
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
-        val startDate = LocalDate.of(stYear, stMonth, 1)
+        val startFirstDay = LocalDate.of(stYear, stMonth, 1)
+        val currentFirstDay = LocalDate.of(now.year, now.monthValue, 1)
+
+        // 1. Формируем полную хронологическую цепочку от стартового месяца до текущего (или до (now - depth), если старт давно)
+        val firstCalculationMonth = if (startFirstDay.isBefore(currentFirstDay)) startFirstDay else currentFirstDay
+        
+        val fullMonthsChain = mutableListOf<LocalDate>()
+        var curr = firstCalculationMonth
+        while (!curr.isAfter(currentFirstDay)) {
+            fullMonthsChain.add(curr)
+            curr = curr.plusMonths(1)
+        }
 
         // Считаем общую сумму ВСЕХ денег
         var totalMoneyAvailable = transactions.sumOf { it.amount }
 
-        val chronologicalMonths = (0 until depth).map { now.minusMonths(it.toLong()) }.reversed()
-        val calculatedSummaries = mutableListOf<MonthSummary>()
+        val allCalculatedSummaries = mutableListOf<MonthSummary>()
 
-        chronologicalMonths.forEach { targetDate ->
+        fullMonthsChain.forEach { targetDate ->
             val monthNameEng = targetDate.month.name
             val dbKey = "${monthNameEng}_${targetDate.year}"
 
-            val isActive = !targetDate.withDayOfMonth(1).isBefore(startDate)
+            val isActive = !targetDate.isBefore(startFirstDay)
             val planSalary = configsMap[dbKey] ?: defSalary
 
             val debt: Double
-            val surplus: Double // локальный профицит месяца
+            val surplus: Double
             val totalPaidForThisMonth: Double
 
             if (isActive) {
                 if (totalMoneyAvailable >= planSalary) {
-                    // ЕСЛИ ДЕНЕГ БОЛЬШЕ ИЛИ РОВНО ПЛАНУ:
-                    totalPaidForThisMonth = totalMoneyAvailable // Показываем ВСЮ сумму, что дошла до этого месяца
+                    // ЕСЛИ ДЕНЕГ ХВАТАЕТ НА ПЛАН ЗАРПЛАТЫ:
                     debt = 0.0
 
-                    // Если это ПОСЛЕДНИЙ (текущий) месяц в цепочке, фиксируем профицит
-                    surplus = if (targetDate.month == now.month && targetDate.year == now.year) {
-                        totalMoneyAvailable - planSalary
+                    val isCurrent = targetDate.month == now.month && targetDate.year == now.year
+                    if (isCurrent) {
+                        surplus = totalMoneyAvailable - planSalary
+                        totalPaidForThisMonth = planSalary + surplus
                     } else {
-                        0.0
+                        surplus = 0.0
+                        totalPaidForThisMonth = planSalary
                     }
 
-                    totalMoneyAvailable -= planSalary // Списываем только норму плана, остаток идет дальше
+                    totalMoneyAvailable -= planSalary
                 } else if (totalMoneyAvailable > 0) {
                     // Частичное погашение
                     totalPaidForThisMonth = totalMoneyAvailable
@@ -110,10 +121,9 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                 surplus = 0.0
             }
 
-            calculatedSummaries.add(
+            allCalculatedSummaries.add(
                 MonthSummary(
-                    // Исправляем падеж: преобразуем "Июля" в "Июль" для красоты
-                    monthName = targetDate.month.getDisplayName(TextStyle.FULL_STANDALONE, java.util.Locale("ru")).replaceFirstChar { it.uppercase() },
+                    monthName = targetDate.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru")).replaceFirstChar { it.uppercase() },
                     year = targetDate.year,
                     totalSalary = planSalary,
                     totalPaid = totalPaidForThisMonth,
@@ -126,7 +136,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             )
         }
 
-        calculatedSummaries.reversed()
+        // Фильтруем выводимый список согласно глубине истории (depth), разворачивая список свежими месяцами наверх
+        allCalculatedSummaries.takeLast(depth).reversed()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {

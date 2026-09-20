@@ -117,7 +117,10 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                         OutlinedTextField(
                             value = amountText,
                             onValueChange = { newValue ->
-                                if (newValue.all { it.isDigit() || it == '.' }) amountText = newValue
+                                val sanitized = newValue.replace(',', '.')
+                                if (sanitized.count { it == '.' } <= 1 && sanitized.all { it.isDigit() || it == '.' }) {
+                                    amountText = sanitized
+                                }
                             },
                             label = { Text("Сумма поступления ($)") },
                             placeholder = { Text("Например, 500") },
@@ -295,7 +298,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                            selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate()
                         }
                         showDatePickerState = false
                     }

@@ -11,18 +11,18 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionDao {
 
     @Insert
-    fun insertTransaction(transaction: Transaction): Unit
+    suspend fun insertTransaction(transaction: Transaction)
 
     @Query("SELECT * FROM salary_transactions ORDER BY date DESC")
     fun getAllTransactions(): Flow<List<Transaction>>
 
     // --- ФУНКЦИЯ ДЛЯ УДАЛЕНИЯ ПЛАТЕЖА ---
     @Delete
-    fun deleteTransaction(transaction: Transaction): Unit
+    suspend fun deleteTransaction(transaction: Transaction)
 
     // --- ФУНКЦИИ ДЛЯ ЗАРПЛАТЫ ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertSalaryConfig(config: SalaryConfig): Unit
+    suspend fun insertSalaryConfig(config: SalaryConfig)
 
     @Query("SELECT * FROM salary_configs")
     fun getAllSalaryConfigs(): Flow<List<SalaryConfig>>

@@ -51,15 +51,14 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     val allPendingProjects: StateFlow<List<PendingProject>> = transactionDao.getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
-        allTransactions, allSalaryConfigs, defaultSalary, startMonth, startYear, historyDepth
+    val allActiveSummaries: StateFlow<List<MonthSummary>> = combine(
+        allTransactions, allSalaryConfigs, defaultSalary, startMonth, startYear
     ) { args ->
         @Suppress("UNCHECKED_CAST") val transactions = args[0] as List<Transaction>
         @Suppress("UNCHECKED_CAST") val configs = args[1] as List<SalaryConfig>
         val defSalary = args[2] as Double
         val stMonth = args[3] as Int
         val stYear = args[4] as Int
-        val depth = args[5] as Int
 
         val now = LocalDate.now()
         val configsMap = configs.associate { it.monthYearKey to it.customSalary }
@@ -140,8 +139,13 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             )
         }
 
-        // Фильтруем выводимый список согласно глубине истории (depth), разворачивая список свежими месяцами наверх
-        allCalculatedSummaries.takeLast(depth).reversed()
+        allCalculatedSummaries
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
+        allActiveSummaries, historyDepth
+    ) { summaries, depth ->
+        summaries.takeLast(depth).reversed()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {

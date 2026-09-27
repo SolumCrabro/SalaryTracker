@@ -22,6 +22,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -36,13 +40,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.data.PendingProject
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import java.time.Month
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
+    val allActiveSummaries by viewModel.allActiveSummaries.collectAsState()
     val pendingProjects by viewModel.allPendingProjects.collectAsState()
+    val allTransactions by viewModel.allTransactions.collectAsState()
 
     val isDark = isSystemInDarkTheme()
     val textMeasurer = rememberTextMeasurer()
@@ -73,13 +80,24 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
         animationSpec = tween(durationMillis = 1000)
     )
 
+    // 1. ДЛЯ ГРАФИКА: берем последние N месяцев (согласно настройке глубины истории)
     val activeMonthsChronological = monthlyData.filter { it.isActive }.reversed()
-    val totalSalarySum = activeMonthsChronological.sumOf { it.totalSalary }
-    val totalDebtSum = activeMonthsChronological.sumOf { it.debt }
-    val totalPaidSum = activeMonthsChronological.sumOf { it.totalPaid }
 
-    val debtPercentage = if (totalSalarySum > 0) (totalDebtSum / totalSalarySum).toFloat() else 0f
-    val paidPercentage = if (totalSalarySum > 0) (totalPaidSum / totalSalarySum).toFloat() else 0f
+    // 2. ДЛЯ ОБЩЕЙ СВОДКИ ("ФИНАНСОВЫЙ ПУЛЬС"): считаем честно ЗА ВСЕ МЕСЯЦЫ с момента старта учета!
+    val activeHistory = allActiveSummaries.filter { it.isActive }
+    val totalSalarySum = activeHistory.sumOf { it.totalSalary }
+    val totalDebtSum = activeHistory.sumOf { it.debt }
+
+    // Все выплаты по окладу и подработкам за всё время с момента регистрации
+    val mainIncomeSum = allTransactions.filter { !it.isSideIncome }.sumOf { it.amount }
+    val sideIncomeSum = allTransactions.filter { it.isSideIncome }.sumOf { it.amount }
+
+    // Честный прогресс закрытия плановой зарплаты за все время
+    val salaryProgress = if (totalSalarySum > 0) {
+        (mainIncomeSum / totalSalarySum).toFloat().coerceIn(0f, 1f)
+    } else {
+        0f
+    }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
@@ -111,63 +129,102 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // БЛОК 1: Карточка с анимированным кольцом
+            // БЛОК 1: Финансовый пульс (Понятная сводка в цифрах + честный прогресс)
             AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(500))) {
                 Card(
                     modifier = Modifier.fillMaxWidth().border(borderStroke, RoundedCornerShape(24.dp)),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = cardBgColor)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Canvas(modifier = Modifier.size(120.dp)) {
-                            val strokeWidth = 14.dp.toPx()
-                            drawCircle(color = Color.Gray.copy(alpha = 0.15f), style = Stroke(strokeWidth))
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "ФИНАНСОВЫЙ ПУЛЬС",
+                            fontSize = 11.sp,
+                            color = labelTextColor,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                            // Умножаем угол sweepAngle на анимированный прогресс chartProgress для эффекта закручивания!
-                            drawArc(
-                                color = emeraldColor,
-                                startAngle = -90f,
-                                sweepAngle = (paidPercentage * 360f) * chartProgress,
-                                useCenter = false,
-                                style = Stroke(strokeWidth, cap = StrokeCap.Round)
-                            )
-                            drawArc(
-                                color = goldColor,
-                                startAngle = -90f + ((paidPercentage * 360f) * chartProgress),
-                                sweepAngle = (debtPercentage * 360f) * chartProgress,
-                                useCenter = false,
-                                style = Stroke(strokeWidth, cap = StrokeCap.Round)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(24.dp))
-
-                        Column {
-                            Text(text = "СТАТУС БАЛАНСА", fontSize = 12.sp, color = labelTextColor, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(10.dp).background(emeraldColor, RoundedCornerShape(50)))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Закрыто: ${(paidPercentage * 100).toInt()}%", fontSize = 14.sp, color = mainTextColor)
+                        // Четыре карточки метрик 2х2
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("План зарплаты", fontSize = 11.sp, color = labelTextColor)
+                                Text(
+                                    text = "$${String.format(Locale.US, "%,.0f", totalSalarySum)}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = mainTextColor
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(10.dp).background(goldColor, RoundedCornerShape(50)))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Долг: ${(debtPercentage * 100).toInt()}%", fontSize = 14.sp, color = mainTextColor)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Выплачено (основное)", fontSize = 11.sp, color = labelTextColor)
+                                Text(
+                                    text = "$${String.format(Locale.US, "%,.0f", mainIncomeSum)}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = emeraldColor
+                                )
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Остаток долга", fontSize = 11.sp, color = labelTextColor)
+                                Text(
+                                    text = "$${String.format(Locale.US, "%,.0f", totalDebtSum)}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (totalDebtSum > 0) goldColor else emeraldColor
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Доп. доходы (проекты)", fontSize = 11.sp, color = labelTextColor)
+                                Text(
+                                    text = "$${String.format(Locale.US, "%,.0f", sideIncomeSum)}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = goldColor
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Честная шкала прогресса
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "План закрыт на:", fontSize = 12.sp, color = labelTextColor)
+                            Text(
+                                text = "${(salaryProgress * 100).toInt()}%",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = emeraldColor
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { salaryProgress * chartProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(50)),
+                            color = emeraldColor,
+                            trackColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // БЛОК 2: Карточка с плавно прорисовывающимся линейным графиком
-            Text(text = "Динамика остатков", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = mainTextColor)
+            // БЛОК 2: Сдвоенный столбчатый график сравнения месяцев "План / Факт"
+            Text(text = "Сравнение по месяцам", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = mainTextColor)
             Spacer(modifier = Modifier.height(8.dp))
 
             AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(500, delayMillis = 150))) {
@@ -177,106 +234,120 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                     colors = CardDefaults.cardColors(containerColor = cardBgColor)
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
-                        Text(text = "ИЗМЕНЕНИЕ ДОЛГА ПО МЕСЯЦАМ", fontSize = 11.sp, color = labelTextColor, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "СООТНОШЕНИЕ ПЛАН / ВЫПЛАЧЕНО",
+                                fontSize = 11.sp,
+                                color = labelTextColor,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+
+                            // Компактная легенда
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(if (isDark) Color(0xFF333538) else Color(0xFFD2D4D8), RoundedCornerShape(50))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("План", fontSize = 10.sp, color = labelTextColor)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(emeraldColor, RoundedCornerShape(50))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Факт", fontSize = 10.sp, color = labelTextColor)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(28.dp))
 
                         Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                             val pointsCount = activeMonthsChronological.size
                             if (pointsCount > 0) {
-                                val paddingX = 30.dp.toPx()
+                                val paddingX = 40.dp.toPx()
                                 val chartWidth = size.width - (paddingX * 2)
-
                                 val widthInterval = if (pointsCount > 1) chartWidth / (pointsCount - 1) else chartWidth
-                                val maxDebt = activeMonthsChronological.maxOf { it.debt }.coerceAtLeast(1.0)
 
-                                val paddingTop = 25.dp.toPx()
+                                val maxVal = activeMonthsChronological.maxOf { maxOf(it.totalSalary, it.totalPaid) }.coerceAtLeast(100.0)
+                                val paddingTop = 20.dp.toPx()
                                 val paddingBottom = 25.dp.toPx()
                                 val chartHeight = size.height - paddingTop - paddingBottom
 
-                                // Сетка графика
+                                val barWidth = 12.dp.toPx()
+                                val barSpacing = 2.dp.toPx()
+
+                                // Горизонтальные линии сетки
                                 for (i in 0..2) {
                                     val y = paddingTop + chartHeight * (i / 2f)
                                     drawLine(
-                                        color = mainTextColor.copy(alpha = 0.06f),
-                                        start = androidx.compose.ui.geometry.Offset(paddingX, y),
-                                        end = androidx.compose.ui.geometry.Offset(size.width - paddingX, y),
+                                        color = mainTextColor.copy(alpha = 0.05f),
+                                        start = Offset(paddingX - 12.dp.toPx(), y),
+                                        end = androidx.compose.ui.geometry.Offset(size.width - paddingX + 12.dp.toPx(), y),
                                         strokeWidth = 1.dp.toPx()
                                     )
                                 }
 
-                                // Базовые координаты точек
-                                val coordinates = activeMonthsChronological.mapIndexed { index, summary ->
-                                    val x = paddingX + (index * widthInterval)
-                                    val y =
-                                        paddingTop + chartHeight - (summary.debt / maxDebt * chartHeight).toFloat()
-                                    androidx.compose.ui.geometry.Offset(x, y)
-                                }
-// ЭФФЕКТ АНИМАЦИИ ГРАФИКА: Линия прорисовывается за счет ограничения по текущему прогрессу chartProgress
-                                if (pointsCount > 1) {
-                                    for (i in 0 until coordinates.size - 1) {
-                                        val startPt = coordinates[i]
-                                        val endPt = coordinates[i + 1]
-// Вычисляем, до куда линия успела добежать на текущем кадре
-                                        val currentEndX = startPt.x + (endPt.x - startPt.x) * chartProgress
-                                        val currentEndY = startPt.y + (endPt.y - startPt.y) * chartProgress
-// Рисуем отрезок, только если до него дошел прогресс
-                                        if (chartProgress > (i.toFloat() / (pointsCount - 1))) {
-                                            drawLine(
-                                                color = goldColor,
-                                                start = startPt,
-                                                end = androidx.compose.ui.geometry.Offset(
-                                                    currentEndX.coerceAtMost(endPt.x),
-                                                    if (chartProgress >= ((i + 1).toFloat() / (pointsCount - 1))) endPt.y else currentEndY
-                                                ),
-                                                strokeWidth = 3.dp.toPx(),
-                                                cap = StrokeCap.Round
-                                            )
-                                        }
-                                    }
-                                }
-// 4. Появление кружков и текстовых меток подстраиваем под альфа-прогресс анимации
                                 activeMonthsChronological.forEachIndexed { index, summary ->
-                                    val pt = coordinates[index]
-// Узлы и текст появляются плавно, когда линия добегает до них
-                                    val triggerThreshold = index.toFloat() / pointsCount
-                                    val ptAlpha = if (chartProgress >= triggerThreshold) (chartProgress - triggerThreshold) * pointsCount else 0f
-                                    val cleanAlpha = ptAlpha.coerceIn(0f, 1f)
-                                    drawCircle(color = cardBgColor.copy(alpha = cleanAlpha), radius = 6.dp.toPx(), center = pt)
-                                    drawCircle(color = goldColor.copy(alpha = cleanAlpha), radius = 4.dp.toPx(), center = pt)
-                                    val textStyleAmount = TextStyle(
-                                        color = (if (summary.debt > 0) goldColor else emeraldColor).copy(alpha = cleanAlpha),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                    val xCenter = paddingX + (index * widthInterval)
+
+                                    val planHeight = (summary.totalSalary / maxVal * chartHeight).toFloat() * chartProgress
+                                    val paidHeight = (summary.totalPaid / maxVal * chartHeight).toFloat() * chartProgress
+
+                                    // 1. Столбец "План" (серо-пыльный)
+                                    val planLeft = xCenter - barWidth - barSpacing
+                                    val planTop = paddingTop + chartHeight - planHeight
+                                    drawRoundRect(
+                                        color = if (isDark) Color(0xFF333538) else Color(0xFFD2D4D8),
+                                        topLeft = androidx.compose.ui.geometry.Offset(planLeft, planTop),
+                                        size = Size(barWidth, planHeight),
+                                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
                                     )
-                                    val textStyleMonth = TextStyle(
-                                        color = labelTextColor.copy(alpha = cleanAlpha),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
+
+                                    // 2. Столбец "Факт" (изумрудный, либо золотой при наличии долга)
+                                    val paidLeft = xCenter + barSpacing
+                                    val paidTop = paddingTop + chartHeight - paidHeight
+                                    val barColor = if (summary.debt > 0) goldColor else emeraldColor
+                                    drawRoundRect(
+                                        color = barColor,
+                                        topLeft = androidx.compose.ui.geometry.Offset(paidLeft, paidTop),
+                                        size = androidx.compose.ui.geometry.Size(barWidth, paidHeight),
+                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
                                     )
-                                    val amountTextLayout = textMeasurer.measure(
-                                        text = if (summary.surplus > 0) "Переплата" else "$${summary.debt.toInt()}",
-                                        style = textStyleAmount
-                                    )
-                                    drawText(
-                                        textLayoutResult = amountTextLayout,
-                                        topLeft = androidx.compose.ui.geometry.Offset(
-                                            x = pt.x - (amountTextLayout.size.width / 2f),
-                                            y = pt.y - amountTextLayout.size.height - 6.dp.toPx()
-                                        ),
-                                        alpha = cleanAlpha
-                                    )
+
+                                    // Название месяца снизу
                                     val shortMonthName = if (summary.monthName.length > 3) summary.monthName.take(3) else summary.monthName
                                     val monthTextLayout = textMeasurer.measure(
                                         text = shortMonthName,
-                                        style = textStyleMonth
+                                        style = TextStyle(color = labelTextColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                     )
                                     drawText(
                                         textLayoutResult = monthTextLayout,
                                         topLeft = androidx.compose.ui.geometry.Offset(
-                                            x = pt.x - (monthTextLayout.size.width / 2f),
+                                            x = xCenter - (monthTextLayout.size.width / 2f),
                                             y = size.height - monthTextLayout.size.height
-                                        ),
-                                        alpha = cleanAlpha
+                                        )
+                                    )
+
+                                    // Значения над столбцами в виде компактной дроби "Факт/План"
+                                    val valTextLayout = textMeasurer.measure(
+                                        text = "$${summary.totalPaid.toInt()}/$${summary.totalSalary.toInt()}",
+                                        style = TextStyle(color = mainTextColor.copy(alpha = 0.8f), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                                    )
+                                    val topY = minOf(planTop, paidTop) - valTextLayout.size.height - 4.dp.toPx()
+                                    drawText(
+                                        textLayoutResult = valTextLayout,
+                                        topLeft = androidx.compose.ui.geometry.Offset(
+                                            x = xCenter - (valTextLayout.size.width / 2f),
+                                            y = topY
+                                        )
                                     )
                                 }
                             }

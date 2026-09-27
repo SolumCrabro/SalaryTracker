@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.salarytracker.data.AppDatabase
 import com.example.salarytracker.data.AppSettings
+import com.example.salarytracker.data.PendingProject
 import com.example.salarytracker.data.SalaryConfig
 import com.example.salarytracker.data.Transaction
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,9 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
 
     val allSalaryConfigs: Flow<List<SalaryConfig>> = transactionDao.getAllSalaryConfigs()
 
+    val allPendingProjects: StateFlow<List<PendingProject>> = transactionDao.getAllProjects()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
         allTransactions, allSalaryConfigs, defaultSalary, startMonth, startYear, historyDepth
     ) { args ->
@@ -62,7 +66,7 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         val startFirstDay = LocalDate.of(stYear, stMonth, 1)
         val currentFirstDay = LocalDate.of(now.year, now.monthValue, 1)
 
-        // 1. Формируем полную хронологическую цепочку от стартового месяца до текущего (или до (now - depth), если старт давно)
+        // 1. Формируем полную хронологическую цепочку от стартового месяца до текущего
         val firstCalculationMonth = if (startFirstDay.isBefore(currentFirstDay)) startFirstDay else currentFirstDay
         
         val fullMonthsChain = mutableListOf<LocalDate>()
@@ -72,8 +76,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
             curr = curr.plusMonths(1)
         }
 
-        // Считаем общую сумму ВСЕХ денег
-        var totalMoneyAvailable = transactions.sumOf { it.amount }
+        // Считаем сумму ТОЛЬКО основных выплат зарплаты (исключаем "левые приходы" / подработки)
+        var totalMoneyAvailable = transactions.filter { !it.isSideIncome }.sumOf { it.amount }
 
         val allCalculatedSummaries = mutableListOf<MonthSummary>()
 
@@ -163,6 +167,38 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.deleteTransaction(transaction)
+        }
+    }
+
+    // --- МЕТОДЫ ДЛЯ ПРОЕКТОВ В РАБОТЕ ---
+    fun addPendingProject(title: String, amount: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionDao.insertProject(
+                PendingProject(title = title, amount = amount)
+            )
+        }
+    }
+
+    fun completeProject(project: PendingProject, paymentType: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Создаем транзакцию с флагом isSideIncome = true ("левый приход")
+            transactionDao.insertTransaction(
+                Transaction(
+                    amount = project.amount,
+                    date = LocalDate.now(),
+                    paymentType = paymentType,
+                    isSideIncome = true,
+                    sourceNote = project.title
+                )
+            )
+            // 2. Удаляем проект из списка ожидания
+            transactionDao.deleteProject(project)
+        }
+    }
+
+    fun deletePendingProject(project: PendingProject) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionDao.deleteProject(project)
         }
     }
 }

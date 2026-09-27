@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,18 +28,33 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.salarytracker.data.PendingProject
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
+    val pendingProjects by viewModel.allPendingProjects.collectAsState()
+
     val isDark = isSystemInDarkTheme()
     val textMeasurer = rememberTextMeasurer()
+
+    // Состояния для всплывающего диалога добавления проекта
+    var showAddProjectDialog by remember { mutableStateOf(false) }
+    var projectTitleText by remember { mutableStateOf("") }
+    var projectAmountText by remember { mutableStateOf("") }
+
+    // Состояния для диалога выбора способа оплаты (Карта/Наличные) при клике на галочку
+    var projectToComplete by remember { mutableStateOf<PendingProject?>(null) }
+    var showCompleteDialog by remember { mutableStateOf(false) }
 
     // Состояние для запуска анимации появления карточек
     var isVisible by remember { mutableStateOf(false) }
@@ -266,6 +284,273 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // БЛОК 3: "Проекты в работе" (Заметки / Подработки)
+            AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(500, delayMillis = 250))) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Проекты в работе",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = mainTextColor
+                        )
+
+                        IconButton(
+                            onClick = { showAddProjectDialog = true },
+                            modifier = Modifier
+                                .background(goldColor.copy(alpha = 0.15f), RoundedCornerShape(50))
+                                .size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Добавить проект",
+                                tint = goldColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (pendingProjects.isEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().border(borderStroke, RoundedCornerShape(20.dp)),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = cardBgColor)
+                        ) {
+                            Text(
+                                text = "Нет проектов в работе.\nНажмите +, чтобы добавить подработку или замещаемый заказ.",
+                                fontSize = 14.sp,
+                                color = labelTextColor,
+                                modifier = Modifier.padding(20.dp)
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pendingProjects.forEach { project ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().border(borderStroke, RoundedCornerShape(18.dp)),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = CardDefaults.cardColors(containerColor = cardBgColor)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = project.title,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = mainTextColor
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "Добавлено: ${project.date.dayOfMonth} ${
+                                                    project.date.month.getDisplayName(
+                                                        java.time.format.TextStyle.SHORT,
+                                                        Locale("ru")
+                                                    )
+                                                }",
+                                                fontSize = 12.sp,
+                                                color = labelTextColor
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "$${String.format(Locale.US, "%,.0f", project.amount)}",
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = goldColor
+                                        )
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        // Зеленая галочка "Завершить и зачислить"
+                                        IconButton(
+                                            onClick = {
+                                                projectToComplete = project
+                                                showCompleteDialog = true
+                                            },
+                                            modifier = Modifier
+                                                .background(emeraldColor, RoundedCornerShape(50))
+                                                .size(34.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Оплачено",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
+                                        // Кнопка быстрого удаления проекта
+                                        IconButton(
+                                            onClick = { viewModel.deletePendingProject(project) },
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Удалить проект",
+                                                tint = labelTextColor,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    // --- ДИАЛОГ 1: Добавление нового проекта в работу ---
+    if (showAddProjectDialog) {
+        val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
+        val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
+
+        AlertDialog(
+            onDismissRequest = { showAddProjectDialog = false },
+            containerColor = dialogBg,
+            titleContentColor = dialogTitle,
+            title = { Text(text = "Новый проект", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = projectTitleText,
+                        onValueChange = { projectTitleText = it },
+                        label = { Text("Название задачи") },
+                        placeholder = { Text("Например, Проект шкафа") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = goldColor,
+                            focusedLabelColor = goldColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = dialogTitle,
+                            unfocusedTextColor = dialogTitle
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = projectAmountText,
+                        onValueChange = { val s = it.replace(',', '.'); if (s.all { c -> c.isDigit() || c == '.' }) projectAmountText = s },
+                        label = { Text("Ожидаемая сумма ($)") },
+                        placeholder = { Text("100") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = goldColor,
+                            focusedLabelColor = goldColor,
+                            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                            unfocusedLabelColor = labelTextColor,
+                            focusedTextColor = dialogTitle,
+                            unfocusedTextColor = dialogTitle
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val amount = projectAmountText.toDoubleOrNull() ?: 0.0
+                        if (projectTitleText.isNotBlank() && amount > 0) {
+                            viewModel.addPendingProject(projectTitleText.trim(), amount)
+                            projectTitleText = ""
+                            projectAmountText = ""
+                            showAddProjectDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = goldColor)
+                ) {
+                    Text("Добавить", color = if (isDark) Color(0xFF111214) else Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddProjectDialog = false }) {
+                    Text("Отмена", color = goldColor)
+                }
+            }
+        )
+    }
+
+    // --- ДИАЛОГ 2: Подтверждение оплаты (Выбор: На карту / Наличные) ---
+    if (showCompleteDialog && projectToComplete != null) {
+        val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
+        val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
+        var selectedPaymentType by remember { mutableStateOf("CARD") }
+
+        AlertDialog(
+            onDismissRequest = {
+                showCompleteDialog = false
+                projectToComplete = null
+            },
+            containerColor = dialogBg,
+            titleContentColor = dialogTitle,
+            title = { Text(text = "Зачисление оплаты", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        text = "Куда поступила оплата за «${projectToComplete!!.title}» ($${projectToComplete!!.amount.toInt()})?",
+                        fontSize = 14.sp,
+                        color = labelTextColor
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedPaymentType == "CARD",
+                            onClick = { selectedPaymentType = "CARD" },
+                            colors = RadioButtonDefaults.colors(selectedColor = goldColor)
+                        )
+                        Text(text = "На карту", color = dialogTitle, fontSize = 15.sp)
+
+                        Spacer(modifier = Modifier.width(20.dp))
+
+                        RadioButton(
+                            selected = selectedPaymentType == "CASH",
+                            onClick = { selectedPaymentType = "CASH" },
+                            colors = RadioButtonDefaults.colors(selectedColor = goldColor)
+                        )
+                        Text(text = "Наличными", color = dialogTitle, fontSize = 15.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.completeProject(projectToComplete!!, selectedPaymentType)
+                        showCompleteDialog = false
+                        projectToComplete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = emeraldColor)
+                ) {
+                    Text("Зачислить", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCompleteDialog = false
+                    projectToComplete = null
+                }) {
+                    Text("Отмена", color = goldColor)
+                }
+            }
+        )
     }
 }

@@ -26,4 +26,14 @@ interface TransactionDao {
 
     @Query("SELECT * FROM salary_configs")
     fun getAllSalaryConfigs(): Flow<List<SalaryConfig>>
+
+    // --- ФУНКЦИИ ДЛЯ ПРОЕКТОВ В РАБОТЕ ---
+    @Insert
+    suspend fun insertProject(project: PendingProject)
+
+    @Query("SELECT * FROM pending_projects ORDER BY date DESC")
+    fun getAllProjects(): Flow<List<PendingProject>>
+
+    @Delete
+    suspend fun deleteProject(project: PendingProject)
 }

@@ -1,5 +1,8 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.accentLight
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.money
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -40,7 +43,7 @@ fun MonthRowItem(
     val borderStroke = when {
         !isActive -> BorderStroke(1.dp, Color.Gray.copy(alpha = 0.15f))
         isDark -> BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.02f))))
-        hasDebt -> BorderStroke(1.5.dp, Color(0xFFE5B067))
+        hasDebt -> BorderStroke(1.5.dp, accentDark)
         else -> BorderStroke(1.5.dp, Color(0xFF4A7A64))
     }
 
@@ -49,15 +52,15 @@ fun MonthRowItem(
     val iconImage = if (hasDebt) Icons.Default.Close else Icons.Default.Check
     val iconColor = when {
         !isActive -> Color(0xFF99A3A4)
-        isDark -> Color(0xFFE5B067)
-        hasDebt -> Color(0xFFBD7C5D)
+        isDark -> accentDark
+        hasDebt -> accentLight
         else -> Color(0xFF4A7A64)
     }
 
     val titleColor = if (isDark) Color.White else Color(0xFF1C1E21)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
     val salaryColor = if (isDark) Color(0xFF76A28E) else Color(0xFF4A7A64)
-    val debtColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val debtColor = appAccentColor()
 
     // Исправленное безопасное форматирование чисел кодом
     val formattedDebt = money(debt)

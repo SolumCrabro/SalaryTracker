@@ -10,7 +10,8 @@ data class BackupSettings(
     val startYear: Int,
     val historyDepth: Int,
     val themeMode: ThemeMode,
-    val currency: AppCurrency = AppCurrency.USD
+    val currency: AppCurrency = AppCurrency.USD,
+    val accentColor: AccentColor = AccentColor.GOLD
 )
 
 data class BackupData(
@@ -44,6 +45,7 @@ object BackupManager {
             put("historyDepth", data.settings.historyDepth)
             put("themeMode", data.settings.themeMode.name)
             put("currency", data.settings.currency.name)
+            put("accentColor", data.settings.accentColor.name)
         })
 
         root.put("transactions", JSONArray().apply {
@@ -108,7 +110,8 @@ object BackupManager {
                 startYear = s.getInt("startYear"),
                 historyDepth = s.getInt("historyDepth").coerceAtLeast(1),
                 themeMode = ThemeMode.fromName(s.optString("themeMode")),
-                currency = AppCurrency.fromName(s.optString("currency"))
+                currency = AppCurrency.fromName(s.optString("currency")),
+                accentColor = AccentColor.fromName(s.optString("accentColor"))
             )
 
             val transactions = root.getJSONArray("transactions").objects().map { o ->

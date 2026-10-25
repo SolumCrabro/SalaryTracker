@@ -10,6 +10,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.salarytracker.data.AccentColor
 import com.example.salarytracker.data.AppCurrency
 import com.example.salarytracker.data.formatMoney
 
@@ -62,11 +63,20 @@ val DarkMetalText = Color(0xFFBD7C5D) // Терракотовый долг
 fun SalaryTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(), // Авто-определение темы устройства!
     currency: AppCurrency = AppCurrency.USD,
+    accent: AccentColor = AccentColor.GOLD,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (darkTheme) {
+        DarkColorScheme.copy(primary = Color(accent.dark))
+    } else {
+        LightColorScheme.copy(primary = Color(accent.light))
+    }
 
-    CompositionLocalProvider(LocalAppDarkTheme provides darkTheme, LocalAppCurrency provides currency) {
+    CompositionLocalProvider(
+        LocalAppDarkTheme provides darkTheme,
+        LocalAppCurrency provides currency,
+        LocalAppAccent provides accent
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography, // Твои стандартные шрифты
@@ -94,3 +104,18 @@ fun appCurrency(): AppCurrency = LocalAppCurrency.current
 @Composable
 @ReadOnlyComposable
 fun money(value: Double): String = formatMoney(value, LocalAppCurrency.current)
+
+// Цвет акцента из настроек
+val LocalAppAccent = staticCompositionLocalOf { AccentColor.GOLD }
+
+val accentDark: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.dark)
+val accentLight: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.light)
+val accentDeep: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.deep)
+
+// Основной акцент с учётом темы
+@Composable
+@ReadOnlyComposable
+fun appAccentColor(): Color = if (LocalAppDarkTheme.current) accentDark else accentLight

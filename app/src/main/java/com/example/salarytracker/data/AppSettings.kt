@@ -22,6 +22,21 @@ enum class ThemeMode(val title: String) {
     }
 }
 
+// Цвет акцента: dark — для тёмной темы, light — для светлой, deep — тёмный край градиентов
+enum class AccentColor(val title: String, val dark: Long, val light: Long, val deep: Long) {
+    GOLD("Золотой", 0xFFE5B067, 0xFFBD7C5D, 0xFF9E7743),
+    GREEN("Зелёный", 0xFF6CC497, 0xFF2E8B57, 0xFF3E7D5A),
+    RED("Красный", 0xFFEF7470, 0xFFC0392B, 0xFF8E3B3A),
+    BLUE("Синий", 0xFF6AB4F5, 0xFF1E6FB8, 0xFF2F5F8A),
+    PURPLE("Фиолетовый", 0xFFB59DE0, 0xFF7E57C2, 0xFF5E4A8A),
+    TEAL("Бирюзовый", 0xFF4DD0C4, 0xFF00897B, 0xFF2F7F78),
+    ORANGE("Оранжевый", 0xFFFFA45C, 0xFFE0701E, 0xFF9A5A2A);
+
+    companion object {
+        fun fromName(name: String?): AccentColor = entries.firstOrNull { it.name == name } ?: GOLD
+    }
+}
+
 class AppSettings(private val context: Context) {
     companion object {
         val KEY_IS_FIRST_RUN = booleanPreferencesKey("is_first_run")
@@ -32,6 +47,7 @@ class AppSettings(private val context: Context) {
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode") // SYSTEM / LIGHT / DARK
         val KEY_CURRENCY = stringPreferencesKey("currency")     // USD / BYN — валюта учёта
         val KEY_RATE_BANK = stringPreferencesKey("rate_bank")   // Банк для конвертера
+        val KEY_ACCENT = stringPreferencesKey("accent_color")   // Цвет акцента
         fun rateKey(bank: Bank) = stringPreferencesKey("rate_${bank.name}") // Последний полученный курс
     }
 
@@ -42,13 +58,15 @@ class AppSettings(private val context: Context) {
     val historyDepth: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_DEPTH] ?: 3 }
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.fromName(it[KEY_THEME_MODE]) }
     val currency: Flow<AppCurrency> = context.dataStore.data.map { AppCurrency.fromName(it[KEY_CURRENCY]) }
+    val accentColor: Flow<AccentColor> = context.dataStore.data.map { AccentColor.fromName(it[KEY_ACCENT]) }
     val rateBank: Flow<Bank> = context.dataStore.data.map { Bank.fromName(it[KEY_RATE_BANK]) }
     val cachedRates: Flow<Map<Bank, ExchangeRate>> = context.dataStore.data.map { pref ->
         Bank.entries.mapNotNull { bank -> ExchangeRate.deserialize(bank, pref[rateKey(bank)])?.let { bank to it } }.toMap()
     }
 
-    suspend fun saveInitialSettings(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
+    suspend fun saveInitialSettings(salary: Double, startMonth: Int, startYear: Int, depth: Int, currency: AppCurrency? = null) {
         context.dataStore.edit { pref ->
+            if (currency != null) pref[KEY_CURRENCY] = currency.name
             pref[KEY_DEFAULT_SALARY] = salary
             pref[KEY_START_MONTH] = startMonth
             pref[KEY_START_YEAR] = startYear
@@ -78,6 +96,10 @@ class AppSettings(private val context: Context) {
 
     suspend fun setCurrency(currency: AppCurrency) {
         context.dataStore.edit { it[KEY_CURRENCY] = currency.name }
+    }
+
+    suspend fun setAccentColor(accent: AccentColor) {
+        context.dataStore.edit { it[KEY_ACCENT] = accent.name }
     }
 
     suspend fun setRateBank(bank: Bank) {

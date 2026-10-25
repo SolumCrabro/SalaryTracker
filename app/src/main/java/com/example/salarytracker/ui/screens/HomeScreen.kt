@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.appCurrency
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -71,7 +72,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel(), onOpenSettings: () -> U
     }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
-    val accentColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val accentColor = appAccentColor()
     val headerTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
 
     Box(
@@ -230,7 +231,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel(), onOpenSettings: () -> U
     if (showDialog && selectedMonthSummary != null) {
         val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
         val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
-        val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+        val dialogButtonColor = appAccentColor()
 
         AlertDialog(
             onDismissRequest = { showDialog = false },

@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.money
 import androidx.compose.foundation.border
 import com.example.salarytracker.ui.theme.isAppInDarkTheme
@@ -32,7 +34,7 @@ fun CurrentMonthCard(
     val borderStroke = if (isDark) {
         Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067)))
+        Brush.verticalGradient(listOf(accentDark, accentDark))
     }
 
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
@@ -40,7 +42,7 @@ fun CurrentMonthCard(
     val textAmountColor = if (isSurplus) {
         if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
     } else {
-        if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+        appAccentColor()
     }
 
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF4E5156)

@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
+import com.example.salarytracker.data.AccentColor
 import com.example.salarytracker.data.AppCurrency
 import com.example.salarytracker.data.AppDatabase
 import com.example.salarytracker.data.Bank
@@ -50,6 +51,13 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
     val currency: StateFlow<AppCurrency> = appSettings.currency
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppCurrency.USD)
+
+    val accentColor: StateFlow<AccentColor> = appSettings.accentColor
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AccentColor.GOLD)
+
+    fun updateAccentColor(accent: AccentColor) {
+        viewModelScope.launch(Dispatchers.IO) { appSettings.setAccentColor(accent) }
+    }
 
     // --- КУРСЫ ВАЛЮТ ---
     val rateBank: StateFlow<Bank> = appSettings.rateBank
@@ -130,9 +138,9 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         summaries.dropLast(depth).filter { it.isActive }.reversed()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
+    fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int, currency: AppCurrency) {
         viewModelScope.launch(Dispatchers.IO) {
-            appSettings.saveInitialSettings(salary, startMonth, startYear, depth)
+            appSettings.saveInitialSettings(salary, startMonth, startYear, depth, currency)
         }
     }
 
@@ -283,7 +291,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                             startYear = startYear.first(),
                             historyDepth = historyDepth.first(),
                             themeMode = appSettings.themeMode.first(),
-                            currency = appSettings.currency.first()
+                            currency = appSettings.currency.first(),
+                            accentColor = appSettings.accentColor.first()
                         ),
                         transactions = transactionDao.getAllTransactionsOnce(),
                         salaryConfigs = transactionDao.getAllSalaryConfigsOnce(),
@@ -337,6 +346,7 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                         appSettings.saveInitialSettings(defaultSalary, startMonth, startYear, historyDepth)
                         appSettings.setThemeMode(themeMode)
                         appSettings.setCurrency(currency)
+                        appSettings.setAccentColor(accentColor)
                     }
                 }
             }

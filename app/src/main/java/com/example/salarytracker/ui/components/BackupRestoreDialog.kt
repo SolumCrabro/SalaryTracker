@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.appAccentColor
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -29,7 +30,7 @@ fun BackupRestoreDialog(
     val isDark = isAppInDarkTheme()
     val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
     val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
-    val accentColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val accentColor = appAccentColor()
     val dateText = backup.createdAt.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
 
     AlertDialog(

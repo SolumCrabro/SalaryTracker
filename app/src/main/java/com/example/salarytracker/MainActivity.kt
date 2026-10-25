@@ -1,5 +1,8 @@
 package com.example.salarytracker
 
+import com.example.salarytracker.ui.theme.accentDeep
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,7 +55,8 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
             val currency by salaryViewModel.currency.collectAsState()
-            SalaryTrackerTheme(darkTheme = darkTheme, currency = currency) {
+            val accent by salaryViewModel.accentColor.collectAsState()
+            SalaryTrackerTheme(darkTheme = darkTheme, currency = currency, accent = accent) {
                 val isDark = isAppInDarkTheme()
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -86,9 +90,9 @@ fun MainAppScreen() {
     val showBottomBar = currentRoute != Screen.Welcome.route && currentRoute != Screen.Settings.route
 
     val goldGradient = if (isDark) {
-        Brush.linearGradient(listOf(Color(0xFFE5B067).copy(alpha = 0.5f), Color(0xFF9E7743).copy(alpha = 0.15f)))
+        Brush.linearGradient(listOf(accentDark.copy(alpha = 0.5f), accentDeep.copy(alpha = 0.15f)))
     } else {
-        Brush.linearGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067))) // Сплошное золото для дня
+        Brush.linearGradient(listOf(accentDark, accentDark)) // Сплошное золото для дня
     }
 
     // Чистый белый фон меню для светлой темы
@@ -117,7 +121,7 @@ fun MainAppScreen() {
                         items.forEach { screen ->
                             val isSelected = currentRoute == screen.route
                             val contentColor = if (isSelected) {
-                                if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+                                appAccentColor()
                             } else {
                                 Color(0xFF7A7D84)
                             }

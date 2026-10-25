@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import android.app.DatePickerDialog
 import android.widget.DatePicker
 import android.widget.Toast
@@ -75,14 +77,14 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     val borderStroke = if (isDark) {
         Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067)))
+        Brush.verticalGradient(listOf(accentDark, accentDark))
     }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
-    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val buttonColor = appAccentColor()
 
     // --- Конвертер: ввод во второй валюте (BYN при учёте в $ и наоборот) ---
     val currency = appCurrency()
@@ -278,7 +280,8 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                     accentColor = buttonColor,
                                     mainTextColor = mainTextColor,
                                     labelTextColor = labelTextColor,
-                                    onRefresh = { viewModel.refreshRate(rateBank, showRateError) }
+                                    onRefresh = { viewModel.refreshRate(rateBank, showRateError) },
+                                    onSelectBank = { viewModel.updateRateBank(it) }
                                 )
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -469,8 +472,10 @@ private fun RateWidget(
     accentColor: Color,
     mainTextColor: Color,
     labelTextColor: Color,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSelectBank: (Bank) -> Unit
 ) {
+    var showBankMenu by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -482,9 +487,41 @@ private fun RateWidget(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            // Нажатие на банк — выбор другого банка прямо здесь
+            Box {
+                Row(
+                    modifier = Modifier.clickable { showBankMenu = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = bank.shortTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = accentColor)
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Выбрать банк",
+                        tint = accentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                DropdownMenu(expanded = showBankMenu, onDismissRequest = { showBankMenu = false }) {
+                    Bank.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = option.title,
+                                    fontWeight = if (option == bank) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (option == bank) accentColor else Color.Unspecified
+                                )
+                            },
+                            onClick = {
+                                showBankMenu = false
+                                onSelectBank(option)
+                            }
+                        )
+                    }
+                }
+            }
             Text(
-                text = if (rate != null) "Курс ${bank.shortTitle}: 1 USD = ${formatRate(rate)} BYN" else "Курс ${bank.shortTitle}: нет данных",
-                fontSize = 15.sp,
+                text = if (rate != null) "1 USD = ${formatRate(rate)} BYN" else "Нет данных о курсе",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = mainTextColor
             )

@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.appCurrency
 import com.example.salarytracker.ui.theme.money
 import android.widget.Toast
@@ -28,6 +30,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.AccentColor
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
 import com.example.salarytracker.data.BackupData
 import com.example.salarytracker.data.Bank
 import com.example.salarytracker.data.formatRate
@@ -62,6 +67,7 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
     val historyDepth by viewModel.historyDepthState.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val currency by viewModel.currency.collectAsState()
+    val accent by viewModel.accentColor.collectAsState()
     val rateBank by viewModel.rateBank.collectAsState()
     val rates by viewModel.cachedRates.collectAsState()
     val loadingRates by viewModel.loadingRates.collectAsState()
@@ -84,12 +90,12 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = Color(0xFF7A7D84)
-    val accentColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val accentColor = appAccentColor()
     val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
     val borderStroke = if (isDark) {
         BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f))))
     } else {
-        BorderStroke(1.5.dp, Color(0xFFE5B067))
+        BorderStroke(1.5.dp, accentDark)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -273,6 +279,41 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
 
             SectionCard("Внешний вид") {
                 SettingRow(title = "Тема", value = themeMode.title, onClick = { showThemeDialog = true })
+                RowDivider()
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "Цвет акцента", fontSize = 16.sp, color = mainTextColor, modifier = Modifier.weight(1f))
+                        Text(text = accent.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = accentColor)
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        AccentColor.entries.forEach { option ->
+                            val swatch = Color(if (isDark) option.dark else option.light)
+                            val isSelected = option == accent
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .border(2.dp, if (isSelected) swatch else Color.Transparent, CircleShape)
+                                    .padding(4.dp)
+                                    .background(swatch, CircleShape)
+                                    .clickable { viewModel.updateAccentColor(option) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = option.title,
+                                        tint = if (isDark) Color(0xFF111214) else Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             SectionCard("Резервная копия") {
@@ -450,7 +491,7 @@ private fun <T> OptionsDialog(
     onDismiss: () -> Unit
 ) {
     val isDark = isAppInDarkTheme()
-    val accentColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val accentColor = appAccentColor()
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
 
     AlertDialog(

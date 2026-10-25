@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.appCurrency
 import com.example.salarytracker.ui.theme.money
 import com.example.salarytracker.data.formatMoney
@@ -111,11 +113,11 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
 
     val emeraldColor = if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
-    val goldColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val goldColor = appAccentColor()
 
     val borderStroke = androidx.compose.foundation.BorderStroke(
         1.5.dp,
-        if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFE5B067)
+        if (isDark) Color.White.copy(alpha = 0.1f) else accentDark
     )
 
     val projectColors = ProjectCardColors(

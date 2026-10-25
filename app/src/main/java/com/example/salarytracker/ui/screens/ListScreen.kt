@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.money
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
@@ -57,7 +58,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
-    val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val dialogButtonColor = appAccentColor()
 
     Box(
         modifier = Modifier

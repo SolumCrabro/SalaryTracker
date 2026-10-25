@@ -1,5 +1,8 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.accentLight
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import com.example.salarytracker.ui.theme.money
 import com.example.salarytracker.data.AppCurrency
 import com.example.salarytracker.data.formatMoney
@@ -45,13 +48,13 @@ fun TransactionRowItem(transaction: Transaction) {
 
     // Специальные цвета для стороннего дохода ("левый приход")
     val badgeBgColor = if (isSide) {
-        if (isDark) Color(0xFFE5B067).copy(alpha = 0.18f) else Color(0xFFBD7C5D).copy(alpha = 0.15f)
+        if (isDark) accentDark.copy(alpha = 0.18f) else accentLight.copy(alpha = 0.15f)
     } else {
         Color(0xFF438A6E).copy(alpha = 0.15f)
     }
 
     val amountTextColor = if (isSide) {
-        if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+        appAccentColor()
     } else {
         if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
     }

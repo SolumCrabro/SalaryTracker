@@ -15,7 +15,8 @@ class BackupManagerTest {
             startYear = 2025,
             historyDepth = 3,
             themeMode = ThemeMode.DARK,
-            currency = AppCurrency.BYN
+            currency = AppCurrency.BYN,
+            accentColor = AccentColor.BLUE
         ),
         transactions = listOf(
             Transaction(id = 1, amount = 1000.0, date = LocalDate.of(2025, 12, 5), paymentType = "CARD"),

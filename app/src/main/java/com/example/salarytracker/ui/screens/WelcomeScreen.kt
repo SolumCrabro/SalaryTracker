@@ -1,6 +1,8 @@
 package com.example.salarytracker.ui.screens
 
-import com.example.salarytracker.ui.theme.appCurrency
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
+import com.example.salarytracker.data.AppCurrency
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,6 +71,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) }
     var expandedDropdown by remember { mutableStateOf(false) }
     var selectedDepth by remember { mutableStateOf(3) }
+    var selectedCurrency by remember { mutableStateOf(AppCurrency.USD) }
 
     // Триггер для запуска анимации появления всего экрана
     var isVisible by remember { mutableStateOf(false) }
@@ -79,14 +82,14 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     val borderStroke = if (isDark) {
         BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f))))
     } else {
-        BorderStroke(1.5.dp, Color(0xFFE5B067))
+        BorderStroke(1.5.dp, accentDark)
     }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
-    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val buttonColor = appAccentColor()
 
     Box(
         modifier = Modifier
@@ -130,10 +133,46 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
 
+                        Text(text = "1. Валюта учёта:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AppCurrency.entries.forEach { option ->
+                                val isSelected = option == selectedCurrency
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) buttonColor else if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .background(
+                                            if (isSelected) buttonColor.copy(alpha = 0.12f) else Color.Transparent,
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { selectedCurrency = option },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (option == AppCurrency.USD) "Доллар ($)" else "Бел. рубль (BYN)",
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) buttonColor else mainTextColor
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(text = "2. Зарплата по умолчанию:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         OutlinedTextField(
                             value = salaryText,
                             onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-                            label = { Text("Зарплата по умолчанию в месяц (${appCurrency().label})") },
+                            label = { Text("Сумма в месяц (${selectedCurrency.label})") },
                             placeholder = { Text("Например, 1500") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -150,7 +189,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text(text = "2. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Text(text = "3. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         ExposedDropdownMenuBox(
@@ -158,7 +197,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                             onExpandedChange = { expandedDropdown = !expandedDropdown }
                         ) {
                             OutlinedTextField(
-                                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
+                                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL_STANDALONE, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
@@ -181,7 +220,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                text = "${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
+                                                text = "${date.month.getDisplayName(TextStyle.FULL_STANDALONE, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
                                                 color = mainTextColor
                                             )
                                         },
@@ -196,7 +235,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text(text = "3. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Text(text = "4. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         val depthOptions = listOf(
@@ -252,7 +291,8 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                                         salary = salary,
                                         startMonth = selectedStartDate.monthValue,
                                         startYear = selectedStartDate.year,
-                                        depth = selectedDepth
+                                        depth = selectedDepth,
+                                        currency = selectedCurrency
                                     )
                                     onFinished()
                                 }

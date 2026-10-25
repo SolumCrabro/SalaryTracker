@@ -21,6 +21,7 @@ import com.example.salarytracker.data.SalaryConfig
 import com.example.salarytracker.data.ThemeMode
 import com.example.salarytracker.data.Transaction
 import com.example.salarytracker.domain.MonthSummary
+import com.example.salarytracker.domain.ProjectProgress
 import com.example.salarytracker.domain.SalaryCalculator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -57,6 +58,13 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
 
     val allPendingProjects: StateFlow<List<PendingProject>> = transactionDao.getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Проекты в работе с их частичными оплатами
+    val projectProgress: StateFlow<List<ProjectProgress>> = combine(
+        allPendingProjects, allTransactions
+    ) { projects, transactions ->
+        ProjectProgress.build(projects, transactions)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Все месяцы от начала учета до текущего, в хронологическом порядке
     val allActiveSummaries: StateFlow<List<MonthSummary>> = combine(
@@ -122,20 +130,39 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun projectPayment(project: PendingProject, amount: Double, paymentType: String) = Transaction(
+        amount = amount,
+        date = LocalDate.now(),
+        paymentType = paymentType,
+        isSideIncome = true, // "левый приход", в долг по зарплате не идет
+        sourceNote = project.title,
+        projectId = project.id
+    )
+
+    // Частичная оплата проекта; если набралась вся сумма — проект закрывается
+    fun addProjectPayment(project: PendingProject, amount: Double, paymentType: String) {
+        if (amount <= 0) return
+        viewModelScope.launch(Dispatchers.IO) {
+            database.withTransaction {
+                val paid = transactionDao.getProjectPaidSum(project.id)
+                transactionDao.insertTransaction(projectPayment(project, amount, paymentType))
+                if (ProjectProgress.isClosed(project.amount, paid + amount)) {
+                    transactionDao.deleteProject(project)
+                }
+            }
+        }
+    }
+
+    // Закрыть полностью: зачисляется весь остаток, проект убирается из "в работе"
     fun completeProject(project: PendingProject, paymentType: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            // 1. Создаем транзакцию с флагом isSideIncome = true ("левый приход")
-            transactionDao.insertTransaction(
-                Transaction(
-                    amount = project.amount,
-                    date = LocalDate.now(),
-                    paymentType = paymentType,
-                    isSideIncome = true,
-                    sourceNote = project.title
-                )
-            )
-            // 2. Удаляем проект из списка ожидания
-            transactionDao.deleteProject(project)
+            database.withTransaction {
+                val remaining = project.amount - transactionDao.getProjectPaidSum(project.id)
+                if (!ProjectProgress.isClosed(project.amount, project.amount - remaining)) {
+                    transactionDao.insertTransaction(projectPayment(project, remaining, paymentType))
+                }
+                transactionDao.deleteProject(project)
+            }
         }
     }
 
@@ -245,7 +272,11 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                         transactionDao.deleteAllTransactions()
                         transactionDao.deleteAllSalaryConfigs()
                         transactionDao.deleteAllProjects()
-                        transactionDao.insertTransactions(data.transactions)
+                        // Оплаты уже закрытых проектов отвязываем, чтобы новый проект с тем же id их не "унаследовал"
+                        val projectIds = data.projects.map { it.id }.toSet()
+                        transactionDao.insertTransactions(
+                            data.transactions.map { if (it.projectId in projectIds) it else it.copy(projectId = null) }
+                        )
                         transactionDao.insertSalaryConfigs(data.salaryConfigs)
                         transactionDao.insertProjects(data.projects)
                     }

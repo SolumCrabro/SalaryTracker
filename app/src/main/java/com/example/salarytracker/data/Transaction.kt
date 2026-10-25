@@ -13,7 +13,8 @@ data class Transaction(
     val date: LocalDate,
     val paymentType: String, // "CARD" или "CASH"
     val isSideIncome: Boolean = false, // НОВОЕ ПОЛЕ: true = левый приход / подработка
-    val sourceNote: String? = null     // НОВОЕ ПОЛЕ: Название проекта/подработки
+    val sourceNote: String? = null,    // НОВОЕ ПОЛЕ: Название проекта/подработки
+    val projectId: Int? = null         // Оплата (в т.ч. частичная) проекта из pending_projects
 )
 
 class DateConverter {

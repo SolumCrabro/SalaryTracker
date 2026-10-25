@@ -28,7 +28,7 @@ class BackupFormatException(message: String, cause: Throwable? = null) : Excepti
 */
 object BackupManager {
     const val APP_ID = "SalaryTracker"
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2 // 2: у платежа есть projectId (частичные оплаты проектов)
 
     fun toJson(data: BackupData): String {
         val root = JSONObject()
@@ -53,6 +53,7 @@ object BackupManager {
                     put("paymentType", t.paymentType)
                     put("isSideIncome", t.isSideIncome)
                     put("sourceNote", t.sourceNote ?: JSONObject.NULL)
+                    put("projectId", t.projectId ?: JSONObject.NULL)
                 })
             }
         })
@@ -110,7 +111,8 @@ object BackupManager {
                     date = LocalDate.parse(o.getString("date")),
                     paymentType = o.getString("paymentType"),
                     isSideIncome = o.optBoolean("isSideIncome", false),
-                    sourceNote = if (o.isNull("sourceNote")) null else o.optString("sourceNote")
+                    sourceNote = if (o.isNull("sourceNote")) null else o.optString("sourceNote"),
+                    projectId = if (o.isNull("projectId")) null else o.getInt("projectId")
                 )
             }
 

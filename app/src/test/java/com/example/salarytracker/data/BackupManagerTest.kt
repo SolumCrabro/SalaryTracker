@@ -20,7 +20,7 @@ class BackupManagerTest {
             Transaction(id = 1, amount = 1000.0, date = LocalDate.of(2025, 12, 5), paymentType = "CARD"),
             Transaction(
                 id = 2, amount = 300.5, date = LocalDate.of(2026, 1, 3), paymentType = "CASH",
-                isSideIncome = true, sourceNote = "Сайт \"Ромашка\""
+                isSideIncome = true, sourceNote = "Сайт \"Ромашка\"", projectId = 7
             )
         ),
         salaryConfigs = listOf(SalaryConfig("DECEMBER_2025", 2000.0)),
@@ -31,6 +31,17 @@ class BackupManagerTest {
     fun roundTripKeepsAllData() {
         val restored = BackupManager.fromJson(BackupManager.toJson(sample))
         assertEquals(sample, restored)
+    }
+
+    @Test
+    fun formatVersion1WithoutProjectIdIsAccepted() {
+        val root = org.json.JSONObject(BackupManager.toJson(sample))
+        root.put("formatVersion", 1)
+        val transactions = root.getJSONArray("transactions")
+        for (i in 0 until transactions.length()) transactions.getJSONObject(i).remove("projectId")
+        val v1 = root.toString()
+        val restored = BackupManager.fromJson(v1)
+        assertEquals(sample.transactions.map { it.copy(projectId = null) }, restored.transactions)
     }
 
     @Test

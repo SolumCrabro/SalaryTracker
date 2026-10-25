@@ -37,6 +37,9 @@ interface TransactionDao {
     @Delete
     suspend fun deleteProject(project: PendingProject)
 
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM salary_transactions WHERE projectId = :projectId")
+    suspend fun getProjectPaidSum(projectId: Int): Double
+
     // --- ФУНКЦИИ ДЛЯ РЕЗЕРВНОЙ КОПИИ ---
     @Query("SELECT * FROM salary_transactions ORDER BY date ASC, id ASC")
     suspend fun getAllTransactionsOnce(): List<Transaction>

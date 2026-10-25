@@ -6,10 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Transaction::class, SalaryConfig::class, PendingProject::class],
-    version = 3,
+    version = 4,
     exportSchema = true // Схемы сохраняются в app/schemas — по ним пишутся и проверяются миграции
 )
 @TypeConverters(DateConverter::class) // Подключаем наш конвертер дат
@@ -27,7 +28,14 @@ abstract class AppDatabase : RoomDatabase() {
         2) добавить сюда Migration(старая, новая) с SQL-изменениями (ALTER TABLE / CREATE TABLE ...).
         Без миграции приложение упадет при обновлении, а не сотрет данные пользователя молча.
         */
-        val MIGRATIONS: Array<Migration> = arrayOf()
+        // 3 -> 4: частичные оплаты проектов (платеж ссылается на проект)
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE salary_transactions ADD COLUMN projectId INTEGER")
+            }
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4)
 
         // Метод для создания/получения базы данных (Pattern Singleton)
         fun getDatabase(context: Context): AppDatabase {

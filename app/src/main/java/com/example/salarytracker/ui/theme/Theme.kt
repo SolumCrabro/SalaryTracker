@@ -5,8 +5,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.salarytracker.data.AccentColor
+import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.formatMoney
 
 
 // Главный фон приложения (глубокий бархатный черный)
@@ -56,13 +62,60 @@ val DarkMetalText = Color(0xFFBD7C5D) // Терракотовый долг
 @Composable
 fun SalaryTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(), // Авто-определение темы устройства!
+    currency: AppCurrency = AppCurrency.USD,
+    accent: AccentColor = AccentColor.GOLD,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (darkTheme) {
+        DarkColorScheme.copy(primary = Color(accent.dark))
+    } else {
+        LightColorScheme.copy(primary = Color(accent.light))
+    }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography, // Твои стандартные шрифты
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalAppDarkTheme provides darkTheme,
+        LocalAppCurrency provides currency,
+        LocalAppAccent provides accent
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography, // Твои стандартные шрифты
+            content = content
+        )
+    }
 }
+
+// Тема, выбранная в настройках (Как в системе / Светлая / Тёмная)
+val LocalAppDarkTheme = staticCompositionLocalOf { false }
+
+// Используется во всех экранах вместо isSystemInDarkTheme(), чтобы учитывать выбор пользователя
+@Composable
+@ReadOnlyComposable
+fun isAppInDarkTheme(): Boolean = LocalAppDarkTheme.current
+
+// Валюта учёта из настроек ($ или BYN)
+val LocalAppCurrency = staticCompositionLocalOf { AppCurrency.USD }
+
+@Composable
+@ReadOnlyComposable
+fun appCurrency(): AppCurrency = LocalAppCurrency.current
+
+// Сумма в валюте учёта: "$1,500" или "1,500 BYN"
+@Composable
+@ReadOnlyComposable
+fun money(value: Double): String = formatMoney(value, LocalAppCurrency.current)
+
+// Цвет акцента из настроек
+val LocalAppAccent = staticCompositionLocalOf { AccentColor.GOLD }
+
+val accentDark: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.dark)
+val accentLight: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.light)
+val accentDeep: Color
+    @Composable @ReadOnlyComposable get() = Color(LocalAppAccent.current.deep)
+
+// Основной акцент с учётом темы
+@Composable
+@ReadOnlyComposable
+fun appAccentColor(): Color = if (LocalAppDarkTheme.current) accentDark else accentLight

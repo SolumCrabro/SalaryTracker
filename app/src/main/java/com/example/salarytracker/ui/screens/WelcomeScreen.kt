@@ -1,5 +1,11 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
+import com.example.salarytracker.data.AppCurrency
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -9,7 +15,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,11 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.salarytracker.data.BackupData
+import com.example.salarytracker.ui.components.BackupRestoreDialog
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,13 +49,29 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     var salaryText by remember { mutableStateOf("") }
     val now = LocalDate.now()
     val ruLocale = Locale("ru")
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val localCoroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Восстановление после переустановки: выбираем файл копии вместо повторной настройки
+    var pendingRestore by remember { mutableStateOf<BackupData?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            viewModel.readBackup(uri) { result ->
+                result
+                    .onSuccess { pendingRestore = it }
+                    .onFailure {
+                        Toast.makeText(context, it.message ?: "Файл не похож на копию SalaryTracker", Toast.LENGTH_LONG).show()
+                    }
+            }
+        }
+    }
 
     val startMonthOptions = (0..3).map { now.minusMonths(it.toLong()) }
     var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) }
     var expandedDropdown by remember { mutableStateOf(false) }
     var selectedDepth by remember { mutableStateOf(3) }
+    var selectedCurrency by remember { mutableStateOf(AppCurrency.USD) }
 
     // Триггер для запуска анимации появления всего экрана
     var isVisible by remember { mutableStateOf(false) }
@@ -57,14 +82,14 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     val borderStroke = if (isDark) {
         BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f))))
     } else {
-        BorderStroke(1.5.dp, Color(0xFFE5B067))
+        BorderStroke(1.5.dp, accentDark)
     }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
-    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val buttonColor = appAccentColor()
 
     Box(
         modifier = Modifier
@@ -108,10 +133,46 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
 
+                        Text(text = "1. Валюта учёта:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AppCurrency.entries.forEach { option ->
+                                val isSelected = option == selectedCurrency
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) buttonColor else if (isDark) Color.White.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.4f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .background(
+                                            if (isSelected) buttonColor.copy(alpha = 0.12f) else Color.Transparent,
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { selectedCurrency = option },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (option == AppCurrency.USD) "Доллар ($)" else "Бел. рубль (BYN)",
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) buttonColor else mainTextColor
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(text = "2. Зарплата по умолчанию:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         OutlinedTextField(
                             value = salaryText,
                             onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-                            label = { Text("Зарплата по умолчанию в месяц ($)") },
+                            label = { Text("Сумма в месяц (${selectedCurrency.label})") },
                             placeholder = { Text("Например, 1500") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -128,7 +189,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text(text = "2. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Text(text = "3. Месяц начала отсчета:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         ExposedDropdownMenuBox(
@@ -136,7 +197,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                             onExpandedChange = { expandedDropdown = !expandedDropdown }
                         ) {
                             OutlinedTextField(
-                                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
+                                value = "${selectedStartDate.month.getDisplayName(TextStyle.FULL_STANDALONE, ruLocale).replaceFirstChar { it.uppercase() }} ${selectedStartDate.year}",
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
@@ -159,7 +220,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                text = "${date.month.getDisplayName(TextStyle.FULL, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
+                                                text = "${date.month.getDisplayName(TextStyle.FULL_STANDALONE, ruLocale).replaceFirstChar { it.uppercase() }} ${date.year}",
                                                 color = mainTextColor
                                             )
                                         },
@@ -174,7 +235,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text(text = "3. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
+                        Text(text = "4. Сколько месяцев выводить в таблицу?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = labelTextColor)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         val depthOptions = listOf(
@@ -230,7 +291,8 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                                         salary = salary,
                                         startMonth = selectedStartDate.monthValue,
                                         startYear = selectedStartDate.year,
-                                        depth = selectedDepth
+                                        depth = selectedDepth,
+                                        currency = selectedCurrency
                                     )
                                     onFinished()
                                 }
@@ -246,9 +308,32 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                             Text(text = "Начать работу", fontSize = 18.sp, fontWeight = FontWeight.Bold, color =
                                 if (isDark) Color(0xFF111214) else Color.White)
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = { importLauncher.launch(BACKUP_MIME_TYPES) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Восстановить из копии", fontSize = 15.sp, color = buttonColor)
+                        }
                     }
                 }
             }
         }
+    }
+
+    pendingRestore?.let { backup ->
+        BackupRestoreDialog(
+            backup = backup,
+            onConfirm = {
+                pendingRestore = null
+                viewModel.restoreBackup(backup) { success, message ->
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    if (success) onFinished()
+                }
+            },
+            onDismiss = { pendingRestore = null }
+        )
     }
 }

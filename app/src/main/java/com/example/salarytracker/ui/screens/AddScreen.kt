@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
 import android.app.DatePickerDialog
 import android.widget.DatePicker
 import android.widget.Toast
@@ -8,11 +10,14 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +26,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Refresh
+import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.Bank
+import com.example.salarytracker.data.CurrencyConverter
+import com.example.salarytracker.data.formatMoney
+import com.example.salarytracker.data.formatRate
+import com.example.salarytracker.ui.theme.appCurrency
+import java.util.Locale
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +59,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var selectedPaymentType by remember { mutableStateOf("CARD") }
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val context = LocalContext.current
 
@@ -63,17 +77,41 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     val borderStroke = if (isDark) {
         Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.03f)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFFE5B067), Color(0xFFE5B067)))
+        Brush.verticalGradient(listOf(accentDark, accentDark))
     }
 
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
-    val buttonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val buttonColor = appAccentColor()
 
-    val row1Templates = listOf(100, 200, 300)
-    val row2Templates = listOf(400, 500, 600)
+    // --- Конвертер: ввод во второй валюте (BYN при учёте в $ и наоборот) ---
+    val currency = appCurrency()
+    val otherCurrency = currency.other
+    val rateBank by viewModel.rateBank.collectAsState()
+    val rates by viewModel.cachedRates.collectAsState()
+    val loadingRates by viewModel.loadingRates.collectAsState()
+    var inputInOther by remember { mutableStateOf(false) }
+    val rate = rates[rateBank]
+    val inputCurrency = if (inputInOther) otherCurrency else currency
+    val enteredAmount = amountText.toDoubleOrNull() ?: 0.0
+    val convertedAmount = if (rate != null) CurrencyConverter.convert(enteredAmount, currency, rate) else 0.0
+    val showRateError: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+
+    // Курс подтягивается сам, если его нет или он старше 3 часов
+    LaunchedEffect(inputInOther, rateBank) {
+        if (inputInOther) {
+            val cached = rates[rateBank]
+            if (cached == null || System.currentTimeMillis() - cached.updatedAtMillis > 3 * 60 * 60 * 1000L) {
+                viewModel.refreshRate(rateBank, showRateError)
+            }
+        }
+    }
+
+    val templates = if (inputCurrency == AppCurrency.BYN) listOf(100, 200, 500, 1000, 1500, 2000) else listOf(100, 200, 300, 400, 500, 600)
+    val row1Templates = templates.take(3)
+    val row2Templates = templates.drop(3)
 
     Box(
         modifier = Modifier
@@ -122,7 +160,37 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                     amountText = sanitized
                                 }
                             },
-                            label = { Text("Сумма поступления ($)") },
+                            label = { Text("Сумма поступления") },
+                            trailingIcon = {
+                                // Переключатель валюты ввода: "BYN ▾ | $"
+                                val otherColor by animateColorAsState(if (inputInOther) buttonColor else labelTextColor.copy(alpha = 0.6f))
+                                val mainColor by animateColorAsState(if (!inputInOther) buttonColor else labelTextColor.copy(alpha = 0.6f))
+                                Row(
+                                    modifier = Modifier.padding(end = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.clickable { inputInOther = true },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = otherCurrency.label, color = otherColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Вносить в ${otherCurrency.code}",
+                                            tint = otherColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Text(text = "|", color = labelTextColor.copy(alpha = 0.4f), fontSize = 16.sp, modifier = Modifier.padding(horizontal = 6.dp))
+                                    Text(
+                                        text = currency.label,
+                                        color = mainColor,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { inputInOther = false }
+                                    )
+                                }
+                            },
                             placeholder = { Text("Например, 500") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -161,7 +229,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                         contentPadding = PaddingValues(horizontal = 8.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        Text(text = "+$$amount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
+                                        Text(text = "+${formatMoney(amount.toDouble(), inputCurrency)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
                                     }
                                 }
                             }
@@ -184,12 +252,55 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                                         contentPadding = PaddingValues(horizontal = 8.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        Text(text = "+$$amount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
+                                        Text(text = "+${formatMoney(amount.toDouble(), inputCurrency)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = animatedTextColor)
                                     }
                                 }
                             }
                         }
                         Spacer(modifier = Modifier.height(18.dp))
+
+                        // Виджет курса и итог в валюте учёта — только при вводе во второй валюте
+                        AnimatedVisibility(
+                            visible = inputInOther,
+                            enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+                            exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+                        ) {
+                            Column {
+                                RateWidget(
+                                    bank = rateBank,
+                                    rate = rate?.let { CurrencyConverter.rateFor(currency, it) },
+                                    rateKind = when {
+                                        rateBank == Bank.NBRB -> "Официальный курс"
+                                        currency == AppCurrency.USD -> "Продажа USD"
+                                        else -> "Покупка USD"
+                                    },
+                                    updatedAtMillis = rate?.updatedAtMillis,
+                                    isLoading = rateBank in loadingRates,
+                                    isDark = isDark,
+                                    accentColor = buttonColor,
+                                    mainTextColor = mainTextColor,
+                                    labelTextColor = labelTextColor,
+                                    onRefresh = { viewModel.refreshRate(rateBank, showRateError) },
+                                    onSelectBank = { viewModel.updateRateBank(it) }
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Итого к зачислению (${currency.code}):",
+                                        fontSize = 15.sp,
+                                        color = labelTextColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = if (rate != null) formatMoney(convertedAmount, currency) else "—",
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = buttonColor
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(18.dp))
+                            }
+                        }
 
                         // Поле выбора даты
                         OutlinedTextField(
@@ -266,8 +377,22 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                         Button(
                             onClick = {
                                 val amount = amountText.toDoubleOrNull() ?: 0.0
-                                if (amount > 0) {
-                                    viewModel.addTransaction(amount, selectedDate, selectedPaymentType)
+                                if (amount > 0 && inputInOther && rate == null) {
+                                    Toast.makeText(context, "Нет курса ${rateBank.shortTitle}. Обновите курс", Toast.LENGTH_SHORT).show()
+                                } else if (amount > 0) {
+                                    if (inputInOther && rate != null) {
+                                        viewModel.addTransaction(
+                                            amount = CurrencyConverter.convert(amount, currency, rate),
+                                            date = selectedDate,
+                                            paymentType = selectedPaymentType,
+                                            originalAmount = amount,
+                                            originalCurrency = otherCurrency,
+                                            exchangeRate = CurrencyConverter.rateFor(currency, rate),
+                                            rateSource = rateBank.shortTitle
+                                        )
+                                    } else {
+                                        viewModel.addTransaction(amount, selectedDate, selectedPaymentType)
+                                    }
                                     amountText = ""
                                     selectedDate = LocalDate.now()
                                     Toast.makeText(context, "Данные успешно сохранены!", Toast.LENGTH_SHORT).show()
@@ -329,6 +454,102 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
                     todayDateBorderColor = buttonColor
                 )
             )
+        }
+    }
+}
+
+private val rateTimeFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("ru"))
+
+// Виджет курса выбранного банка с кнопкой обновления
+@Composable
+private fun RateWidget(
+    bank: Bank,
+    rate: Double?,
+    rateKind: String,
+    updatedAtMillis: Long?,
+    isLoading: Boolean,
+    isDark: Boolean,
+    accentColor: Color,
+    mainTextColor: Color,
+    labelTextColor: Color,
+    onRefresh: () -> Unit,
+    onSelectBank: (Bank) -> Unit
+) {
+    var showBankMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            // Нажатие на банк — выбор другого банка прямо здесь
+            Box {
+                Row(
+                    modifier = Modifier.clickable { showBankMenu = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = bank.shortTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = accentColor)
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Выбрать банк",
+                        tint = accentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                DropdownMenu(expanded = showBankMenu, onDismissRequest = { showBankMenu = false }) {
+                    Bank.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = option.title,
+                                    fontWeight = if (option == bank) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (option == bank) accentColor else Color.Unspecified
+                                )
+                            },
+                            onClick = {
+                                showBankMenu = false
+                                onSelectBank(option)
+                            }
+                        )
+                    }
+                }
+            }
+            Text(
+                text = if (rate != null) "1 USD = ${formatRate(rate)} BYN" else "Нет данных о курсе",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = mainTextColor
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (updatedAtMillis != null) {
+                    val time = Instant.ofEpochMilli(updatedAtMillis).atZone(ZoneId.systemDefault()).format(rateTimeFormatter)
+                    "$rateKind · Обновлено: $time"
+                } else {
+                    "Нажмите «обновить»"
+                },
+                fontSize = 12.sp,
+                color = labelTextColor
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .border(1.dp, accentColor, RoundedCornerShape(10.dp))
+                .clickable(enabled = !isLoading, onClick = onRefresh),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = accentColor)
+            } else {
+                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Обновить курс", tint = accentColor)
+            }
         }
     }
 }

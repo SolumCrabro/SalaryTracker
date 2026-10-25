@@ -1,5 +1,10 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
+import com.example.salarytracker.ui.theme.appCurrency
+import com.example.salarytracker.ui.theme.money
+import com.example.salarytracker.data.formatMoney
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -7,7 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,7 +43,9 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.salarytracker.data.PendingProject
+import com.example.salarytracker.ui.components.ProjectCard
+import com.example.salarytracker.ui.components.ProjectCardColors
+import com.example.salarytracker.ui.components.ProjectPaymentDialog
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 import java.time.Month
 import java.util.Locale
@@ -48,10 +55,11 @@ import java.util.Locale
 fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
     val allActiveSummaries by viewModel.allActiveSummaries.collectAsState()
-    val pendingProjects by viewModel.allPendingProjects.collectAsState()
+    val pendingProjects by viewModel.projectProgress.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
+    val chartCurrency = appCurrency()
     val textMeasurer = rememberTextMeasurer()
 
     // Состояния для всплывающего диалога добавления проекта
@@ -59,9 +67,9 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     var projectTitleText by remember { mutableStateOf("") }
     var projectAmountText by remember { mutableStateOf("") }
 
-    // Состояния для диалога выбора способа оплаты (Карта/Наличные) при клике на галочку
-    var projectToComplete by remember { mutableStateOf<PendingProject?>(null) }
-    var showCompleteDialog by remember { mutableStateOf(false) }
+    // Диалог оплаты проекта (часть / полностью) и раскрытые карточки проектов
+    var payProjectId by remember { mutableStateOf<Int?>(null) }
+    var expandedProjectIds by remember { mutableStateOf(setOf<Int>()) }
 
     // Состояние для запуска анимации появления карточек
     var isVisible by remember { mutableStateOf(false) }
@@ -105,11 +113,21 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF555A60)
 
     val emeraldColor = if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
-    val goldColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val goldColor = appAccentColor()
 
     val borderStroke = androidx.compose.foundation.BorderStroke(
         1.5.dp,
-        if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFE5B067)
+        if (isDark) Color.White.copy(alpha = 0.1f) else accentDark
+    )
+
+    val projectColors = ProjectCardColors(
+        card = cardBgColor,
+        border = borderStroke,
+        mainText = mainTextColor,
+        label = labelTextColor,
+        gold = goldColor,
+        emerald = emeraldColor,
+        track = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
     )
 
     Box(modifier = Modifier.fillMaxSize().background(mainBgColor)) {
@@ -151,7 +169,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("План зарплаты", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", totalSalarySum)}",
+                                    text = money(totalSalarySum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = mainTextColor
@@ -160,7 +178,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Выплачено (основное)", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", mainIncomeSum)}",
+                                    text = money(mainIncomeSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = emeraldColor
@@ -174,7 +192,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Остаток долга", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", totalDebtSum)}",
+                                    text = money(totalDebtSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (totalDebtSum > 0) goldColor else emeraldColor
@@ -183,7 +201,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Доп. доходы (проекты)", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", sideIncomeSum)}",
+                                    text = money(sideIncomeSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = goldColor
@@ -338,7 +356,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
 
                                     // Значения над столбцами в виде компактной дроби "Факт/План"
                                     val valTextLayout = textMeasurer.measure(
-                                        text = "$${summary.totalPaid.toInt()}/$${summary.totalSalary.toInt()}",
+                                        text = "${formatMoney(summary.totalPaid, chartCurrency)}/${formatMoney(summary.totalSalary, chartCurrency)}",
                                         style = TextStyle(color = mainTextColor.copy(alpha = 0.8f), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                                     )
                                     val topY = minOf(planTop, paidTop) - valTextLayout.size.height - 4.dp.toPx()
@@ -405,81 +423,25 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                         }
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pendingProjects.forEach { project ->
-                                Card(
-                                    modifier = Modifier.fillMaxWidth().border(borderStroke, RoundedCornerShape(18.dp)),
-                                    shape = RoundedCornerShape(18.dp),
-                                    colors = CardDefaults.cardColors(containerColor = cardBgColor)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = project.title,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = mainTextColor
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = "Добавлено: ${project.date.dayOfMonth} ${
-                                                    project.date.month.getDisplayName(
-                                                        java.time.format.TextStyle.SHORT,
-                                                        Locale("ru")
-                                                    )
-                                                }",
-                                                fontSize = 12.sp,
-                                                color = labelTextColor
-                                            )
+                            pendingProjects.forEach { progress ->
+                                val projectId = progress.project.id
+                                ProjectCard(
+                                    progress = progress,
+                                    expanded = projectId in expandedProjectIds,
+                                    colors = projectColors,
+                                    onToggle = {
+                                        expandedProjectIds = if (projectId in expandedProjectIds) {
+                                            expandedProjectIds - projectId
+                                        } else {
+                                            expandedProjectIds + projectId
                                         }
-
-                                        Text(
-                                            text = "$${String.format(Locale.US, "%,.0f", project.amount)}",
-                                            fontSize = 17.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = goldColor
-                                        )
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        // Зеленая галочка "Завершить и зачислить"
-                                        IconButton(
-                                            onClick = {
-                                                projectToComplete = project
-                                                showCompleteDialog = true
-                                            },
-                                            modifier = Modifier
-                                                .background(emeraldColor, RoundedCornerShape(50))
-                                                .size(34.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Оплачено",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(4.dp))
-
-                                        // Кнопка быстрого удаления проекта
-                                        IconButton(
-                                            onClick = { viewModel.deletePendingProject(project) },
-                                            modifier = Modifier.size(30.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Удалить проект",
-                                                tint = labelTextColor,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                    },
+                                    onPayClick = { payProjectId = projectId },
+                                    // Проект с оплатами висит, пока не закрыт полностью
+                                    onDelete = if (progress.hasPayments) null else {
+                                        { viewModel.deletePendingProject(progress.project) }
                                     }
-                                }
+                                )
                             }
                         }
                     }
@@ -520,7 +482,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                     OutlinedTextField(
                         value = projectAmountText,
                         onValueChange = { val s = it.replace(',', '.'); if (s.all { c -> c.isDigit() || c == '.' }) projectAmountText = s },
-                        label = { Text("Ожидаемая сумма ($)") },
+                        label = { Text("Ожидаемая сумма (${appCurrency().label})") },
                         placeholder = { Text("100") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -560,68 +522,22 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
         )
     }
 
-    // --- ДИАЛОГ 2: Подтверждение оплаты (Выбор: На карту / Наличные) ---
-    if (showCompleteDialog && projectToComplete != null) {
-        val dialogBg = if (isDark) Color(0xFF1E2022) else Color(0xFFFFFFFF)
-        val dialogTitle = if (isDark) Color.White else Color(0xFF111214)
-        var selectedPaymentType by remember { mutableStateOf("CARD") }
-
-        AlertDialog(
-            onDismissRequest = {
-                showCompleteDialog = false
-                projectToComplete = null
+    // --- ДИАЛОГ 2: Оплата проекта — внести часть или закрыть полностью ---
+    pendingProjects.find { it.project.id == payProjectId }?.let { progress ->
+        ProjectPaymentDialog(
+            progress = progress,
+            isDark = isDark,
+            colors = projectColors,
+            onPartial = { amount, paymentType ->
+                viewModel.addProjectPayment(progress.project, amount, paymentType)
+                expandedProjectIds = expandedProjectIds + progress.project.id
+                payProjectId = null
             },
-            containerColor = dialogBg,
-            titleContentColor = dialogTitle,
-            title = { Text(text = "Зачисление оплаты", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text(
-                        text = "Куда поступила оплата за «${projectToComplete!!.title}» ($${projectToComplete!!.amount.toInt()})?",
-                        fontSize = 14.sp,
-                        color = labelTextColor
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = selectedPaymentType == "CARD",
-                            onClick = { selectedPaymentType = "CARD" },
-                            colors = RadioButtonDefaults.colors(selectedColor = goldColor)
-                        )
-                        Text(text = "На карту", color = dialogTitle, fontSize = 15.sp)
-
-                        Spacer(modifier = Modifier.width(20.dp))
-
-                        RadioButton(
-                            selected = selectedPaymentType == "CASH",
-                            onClick = { selectedPaymentType = "CASH" },
-                            colors = RadioButtonDefaults.colors(selectedColor = goldColor)
-                        )
-                        Text(text = "Наличными", color = dialogTitle, fontSize = 15.sp)
-                    }
-                }
+            onCloseFully = { paymentType ->
+                viewModel.completeProject(progress.project, paymentType)
+                payProjectId = null
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.completeProject(projectToComplete!!, selectedPaymentType)
-                        showCompleteDialog = false
-                        projectToComplete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = emeraldColor)
-                ) {
-                    Text("Зачислить", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showCompleteDialog = false
-                    projectToComplete = null
-                }) {
-                    Text("Отмена", color = goldColor)
-                }
-            }
+            onDismiss = { payProjectId = null }
         )
     }
 }

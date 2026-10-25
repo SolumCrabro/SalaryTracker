@@ -1,7 +1,14 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.accentLight
+import com.example.salarytracker.ui.theme.accentDark
+import com.example.salarytracker.ui.theme.appAccentColor
+import com.example.salarytracker.ui.theme.money
+import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.formatMoney
+import com.example.salarytracker.data.formatRate
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,7 +32,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TransactionRowItem(transaction: Transaction) {
     val dateFormatter = DateTimeFormatter.ofPattern("dd MMMM yyyy")
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
 
     val isSide = transaction.isSideIncome
     val isCard = transaction.paymentType == "CARD"
@@ -41,13 +48,13 @@ fun TransactionRowItem(transaction: Transaction) {
 
     // Специальные цвета для стороннего дохода ("левый приход")
     val badgeBgColor = if (isSide) {
-        if (isDark) Color(0xFFE5B067).copy(alpha = 0.18f) else Color(0xFFBD7C5D).copy(alpha = 0.15f)
+        if (isDark) accentDark.copy(alpha = 0.18f) else accentLight.copy(alpha = 0.15f)
     } else {
         Color(0xFF438A6E).copy(alpha = 0.15f)
     }
 
     val amountTextColor = if (isSide) {
-        if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+        appAccentColor()
     } else {
         if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
     }
@@ -96,10 +103,21 @@ fun TransactionRowItem(transaction: Transaction) {
                 fontSize = 13.sp,
                 color = Color(0xFF7A7D84)
             )
+            // Внесено через конвертер: "500 BYN по 2.95 · НБРБ"
+            val originalAmount = transaction.originalAmount
+            if (originalAmount != null && transaction.originalCurrency != null) {
+                val rateInfo = transaction.exchangeRate?.let { " по ${formatRate(it)}" } ?: ""
+                val sourceInfo = transaction.rateSource?.let { " · $it" } ?: ""
+                Text(
+                    text = formatMoney(originalAmount, AppCurrency.fromName(transaction.originalCurrency)) + rateInfo + sourceInfo,
+                    fontSize = 12.sp,
+                    color = Color(0xFF7A7D84)
+                )
+            }
         }
 
         Text(
-            text = "+ $${String.format(java.util.Locale.US, "%,.0f", transaction.amount)}",
+            text = "+ ${money(transaction.amount)}",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = amountTextColor

@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appAccentColor
+import com.example.salarytracker.ui.theme.money
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable // Добавлен для контроля анимации строк
@@ -7,7 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed // Изменили на itemsIndexed для каскадного эффекта
@@ -40,7 +42,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val transactions by viewModel.allTransactions.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
 
     // Состояния для управления диалогом удаления
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -56,7 +58,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
     val cardBgColor = if (isDark) Color(0xFF1E2022).copy(alpha = 0.85f) else Color(0xFFFFFFFF)
     val mainTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
-    val dialogButtonColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    val dialogButtonColor = appAccentColor()
 
     Box(
         modifier = Modifier
@@ -207,7 +209,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
             title = { Text(text = "Удаление платежа", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format(Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
+                    text = "Вы уверены, что хотите удалить платеж на сумму ${money(transactionToDelete!!.amount)}?",
                     fontSize = 15.sp
                 )
             },

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -15,4 +16,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Welcome : Screen("welcome", "Регистрация", Icons.Default.Home)
 
     object Analytics : Screen("analytics", "Аналитика", Icons.Default.DateRange)
+
+    // Открывается шестеренкой на главной, в нижнем меню не показывается
+    object Settings : Screen("settings", "Настройки", Icons.Default.Settings)
 }

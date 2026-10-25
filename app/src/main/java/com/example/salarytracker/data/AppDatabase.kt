@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [Transaction::class, SalaryConfig::class],
-    version = 2,
+    entities = [Transaction::class, SalaryConfig::class, PendingProject::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class) // Подключаем наш конвертер дат

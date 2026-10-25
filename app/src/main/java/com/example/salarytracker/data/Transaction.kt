@@ -11,7 +11,9 @@ data class Transaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val amount: Double,
     val date: LocalDate,
-    val paymentType: String // НОВОЕ ПОЛЕ: "CARD" или "CASH"
+    val paymentType: String, // "CARD" или "CASH"
+    val isSideIncome: Boolean = false, // НОВОЕ ПОЛЕ: true = левый приход / подработка
+    val sourceNote: String? = null     // НОВОЕ ПОЛЕ: Название проекта/подработки
 )
 
 class DateConverter {

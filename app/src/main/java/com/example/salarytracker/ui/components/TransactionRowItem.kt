@@ -4,8 +4,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,11 +27,30 @@ fun TransactionRowItem(transaction: Transaction) {
     val dateFormatter = DateTimeFormatter.ofPattern("dd MMMM yyyy")
     val isDark = isSystemInDarkTheme()
 
+    val isSide = transaction.isSideIncome
     val isCard = transaction.paymentType == "CARD"
-    val iconResource = if (isCard) R.drawable.ic_card else R.drawable.ic_cash
-    val paymentTypeText = if (isCard) "Поступление на карту" else "Поступление наличными"
 
+    val titleText = if (isSide && !transaction.sourceNote.isNullOrEmpty()) {
+        "Доход: ${transaction.sourceNote}"
+    } else {
+        if (isCard) "Поступление на карту" else "Поступление наличными"
+    }
+
+    val iconResource = if (isCard) R.drawable.ic_card else R.drawable.ic_cash
     val itemTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
+
+    // Специальные цвета для стороннего дохода ("левый приход")
+    val badgeBgColor = if (isSide) {
+        if (isDark) Color(0xFFE5B067).copy(alpha = 0.18f) else Color(0xFFBD7C5D).copy(alpha = 0.15f)
+    } else {
+        Color(0xFF438A6E).copy(alpha = 0.15f)
+    }
+
+    val amountTextColor = if (isSide) {
+        if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
+    } else {
+        if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
+    }
 
     Row(
         modifier = Modifier
@@ -38,15 +60,24 @@ fun TransactionRowItem(transaction: Transaction) {
     ) {
         Card(
             shape = RoundedCornerShape(50),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF438A6E).copy(alpha = 0.15f)),
+            colors = CardDefaults.cardColors(containerColor = badgeBgColor),
             modifier = Modifier.size(40.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Image(
-                    painter = painterResource(id = iconResource),
-                    contentDescription = paymentTypeText,
-                    modifier = Modifier.size(22.dp)
-                )
+                if (isSide) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Подработка",
+                        tint = amountTextColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = iconResource),
+                        contentDescription = titleText,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
 
@@ -54,7 +85,7 @@ fun TransactionRowItem(transaction: Transaction) {
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = paymentTypeText,
+                text = titleText,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = itemTextColor
@@ -71,7 +102,7 @@ fun TransactionRowItem(transaction: Transaction) {
             text = "+ $${String.format(java.util.Locale.US, "%,.0f", transaction.amount)}",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = if (isDark) Color(0xFF438A6E) else Color(0xFF4A7A64)
+            color = amountTextColor
         )
     }
 }

@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.money
+import com.example.salarytracker.ui.theme.appCurrency
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -35,8 +37,6 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 private val ruLocale = Locale("ru")
-
-private fun money(value: Double): String = "$${String.format(Locale.US, "%,.0f", value)}"
 
 private fun shortDate(date: LocalDate): String =
     "${date.dayOfMonth} ${date.month.getDisplayName(TextStyle.SHORT, ruLocale).trimEnd('.')}"
@@ -256,7 +256,7 @@ fun ProjectPaymentDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { val s = it.replace(',', '.'); if (s.all { c -> c.isDigit() || c == '.' }) amountText = s },
-                    label = { Text("Сумма платежа ($)") },
+                    label = { Text("Сумма платежа (${appCurrency().label})") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

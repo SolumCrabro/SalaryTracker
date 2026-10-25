@@ -51,7 +51,8 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            SalaryTrackerTheme(darkTheme = darkTheme) {
+            val currency by salaryViewModel.currency.collectAsState()
+            SalaryTrackerTheme(darkTheme = darkTheme, currency = currency) {
                 val isDark = isAppInDarkTheme()
                 Surface(
                     modifier = Modifier.fillMaxSize(),

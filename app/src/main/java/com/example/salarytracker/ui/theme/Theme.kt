@@ -10,6 +10,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.formatMoney
 
 
 // Главный фон приложения (глубокий бархатный черный)
@@ -59,11 +61,12 @@ val DarkMetalText = Color(0xFFBD7C5D) // Терракотовый долг
 @Composable
 fun SalaryTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(), // Авто-определение темы устройства!
+    currency: AppCurrency = AppCurrency.USD,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    CompositionLocalProvider(LocalAppDarkTheme provides darkTheme) {
+    CompositionLocalProvider(LocalAppDarkTheme provides darkTheme, LocalAppCurrency provides currency) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography, // Твои стандартные шрифты
@@ -79,3 +82,15 @@ val LocalAppDarkTheme = staticCompositionLocalOf { false }
 @Composable
 @ReadOnlyComposable
 fun isAppInDarkTheme(): Boolean = LocalAppDarkTheme.current
+
+// Валюта учёта из настроек ($ или BYN)
+val LocalAppCurrency = staticCompositionLocalOf { AppCurrency.USD }
+
+@Composable
+@ReadOnlyComposable
+fun appCurrency(): AppCurrency = LocalAppCurrency.current
+
+// Сумма в валюте учёта: "$1,500" или "1,500 BYN"
+@Composable
+@ReadOnlyComposable
+fun money(value: Double): String = formatMoney(value, LocalAppCurrency.current)

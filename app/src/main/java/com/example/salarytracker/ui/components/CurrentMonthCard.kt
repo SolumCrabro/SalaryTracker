@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.money
 import androidx.compose.foundation.border
 import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -45,10 +46,8 @@ fun CurrentMonthCard(
     val labelTextColor = if (isDark) Color(0xFF7A7D84) else Color(0xFF4E5156)
 
     // Форматируем число
-    val formattedAmount = String.format(java.util.Locale.US, "%,.0f", displayAmount)
-
-    // ИСПРАВЛЕНИЕ: Убрали знак минус перед суммой переплаты, теперь пишется просто чистая сумма
-    val textToShow = "\$$formattedAmount"
+    // Без знака минус перед суммой переплаты, просто чистая сумма в валюте учёта
+    val textToShow = money(displayAmount)
 
     Card(
         modifier = modifier

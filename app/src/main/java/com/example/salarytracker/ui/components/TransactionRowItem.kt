@@ -1,5 +1,9 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.money
+import com.example.salarytracker.data.AppCurrency
+import com.example.salarytracker.data.formatMoney
+import com.example.salarytracker.data.formatRate
 import androidx.compose.foundation.Image
 import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -96,10 +100,21 @@ fun TransactionRowItem(transaction: Transaction) {
                 fontSize = 13.sp,
                 color = Color(0xFF7A7D84)
             )
+            // Внесено через конвертер: "500 BYN по 2.95 · НБРБ"
+            val originalAmount = transaction.originalAmount
+            if (originalAmount != null && transaction.originalCurrency != null) {
+                val rateInfo = transaction.exchangeRate?.let { " по ${formatRate(it)}" } ?: ""
+                val sourceInfo = transaction.rateSource?.let { " · $it" } ?: ""
+                Text(
+                    text = formatMoney(originalAmount, AppCurrency.fromName(transaction.originalCurrency)) + rateInfo + sourceInfo,
+                    fontSize = 12.sp,
+                    color = Color(0xFF7A7D84)
+                )
+            }
         }
 
         Text(
-            text = "+ $${String.format(java.util.Locale.US, "%,.0f", transaction.amount)}",
+            text = "+ ${money(transaction.amount)}",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = amountTextColor

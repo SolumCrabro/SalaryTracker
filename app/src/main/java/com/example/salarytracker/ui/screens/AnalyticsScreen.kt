@@ -1,5 +1,8 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appCurrency
+import com.example.salarytracker.ui.theme.money
+import com.example.salarytracker.data.formatMoney
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -54,6 +57,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val allTransactions by viewModel.allTransactions.collectAsState()
 
     val isDark = isAppInDarkTheme()
+    val chartCurrency = appCurrency()
     val textMeasurer = rememberTextMeasurer()
 
     // Состояния для всплывающего диалога добавления проекта
@@ -163,7 +167,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("План зарплаты", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", totalSalarySum)}",
+                                    text = money(totalSalarySum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = mainTextColor
@@ -172,7 +176,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Выплачено (основное)", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", mainIncomeSum)}",
+                                    text = money(mainIncomeSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = emeraldColor
@@ -186,7 +190,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Остаток долга", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", totalDebtSum)}",
+                                    text = money(totalDebtSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (totalDebtSum > 0) goldColor else emeraldColor
@@ -195,7 +199,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Доп. доходы (проекты)", fontSize = 11.sp, color = labelTextColor)
                                 Text(
-                                    text = "$${String.format(Locale.US, "%,.0f", sideIncomeSum)}",
+                                    text = money(sideIncomeSum),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = goldColor
@@ -350,7 +354,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
 
                                     // Значения над столбцами в виде компактной дроби "Факт/План"
                                     val valTextLayout = textMeasurer.measure(
-                                        text = "$${summary.totalPaid.toInt()}/$${summary.totalSalary.toInt()}",
+                                        text = "${formatMoney(summary.totalPaid, chartCurrency)}/${formatMoney(summary.totalSalary, chartCurrency)}",
                                         style = TextStyle(color = mainTextColor.copy(alpha = 0.8f), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                                     )
                                     val topY = minOf(planTop, paidTop) - valTextLayout.size.height - 4.dp.toPx()
@@ -476,7 +480,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
                     OutlinedTextField(
                         value = projectAmountText,
                         onValueChange = { val s = it.replace(',', '.'); if (s.all { c -> c.isDigit() || c == '.' }) projectAmountText = s },
-                        label = { Text("Ожидаемая сумма ($)") },
+                        label = { Text("Ожидаемая сумма (${appCurrency().label})") },
                         placeholder = { Text("100") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,

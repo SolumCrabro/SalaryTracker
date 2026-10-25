@@ -1,5 +1,7 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appCurrency
+import com.example.salarytracker.ui.theme.money
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,7 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.salarytracker.data.AppCurrency
 import com.example.salarytracker.data.BackupData
+import com.example.salarytracker.data.Bank
+import com.example.salarytracker.data.formatRate
+import androidx.compose.material.icons.filled.Refresh
 import com.example.salarytracker.data.ThemeMode
 import com.example.salarytracker.ui.components.BackupRestoreDialog
 import com.example.salarytracker.ui.theme.isAppInDarkTheme
@@ -55,6 +61,18 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
     val startDate by viewModel.startDateState.collectAsState()
     val historyDepth by viewModel.historyDepthState.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val currency by viewModel.currency.collectAsState()
+    val rateBank by viewModel.rateBank.collectAsState()
+    val rates by viewModel.cachedRates.collectAsState()
+    val loadingRates by viewModel.loadingRates.collectAsState()
+    var showCurrencyDialog by remember { mutableStateOf(false) }
+    var showBankDialog by remember { mutableStateOf(false) }
+    val showRateError: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+
+    // Курсы, которых еще нет, подтягиваются при открытии настроек
+    LaunchedEffect(Unit) {
+        Bank.entries.filter { it !in rates }.forEach { viewModel.refreshRate(it) }
+    }
 
     var showSalaryDialog by remember { mutableStateOf(false) }
     var showStartDialog by remember { mutableStateOf(false) }
@@ -169,7 +187,7 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
             SectionCard("Учёт зарплаты") {
                 SettingRow(
                     title = "Оклад по умолчанию",
-                    value = defaultSalary?.let { "$${String.format(Locale.US, "%,.0f", it)}" },
+                    value = defaultSalary?.let { money(it) },
                     onClick = { showSalaryDialog = true }
                 )
                 RowDivider()
@@ -184,7 +202,74 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
                     value = historyDepth?.let { depthTitle(it) },
                     onClick = { showDepthDialog = true }
                 )
+                RowDivider()
+                SettingRow(
+                    title = "Валюта учёта",
+                    value = currency.code,
+                    onClick = { showCurrencyDialog = true }
+                )
             }
+
+            SectionCard("Курсы валют") {
+                SettingRow(
+                    title = "Банк для конвертера",
+                    value = rateBank.shortTitle,
+                    onClick = { showBankDialog = true }
+                )
+                RowDivider()
+                Row(
+                    modifier = Modifier.padding(start = 20.dp, end = 8.dp, top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "USD → BYN", fontSize = 13.sp, color = labelTextColor, modifier = Modifier.weight(1f))
+                    Text(text = "покупка / продажа", fontSize = 13.sp, color = labelTextColor)
+                    IconButton(
+                        onClick = { Bank.entries.forEach { viewModel.refreshRate(it, showRateError) } },
+                        enabled = loadingRates.isEmpty()
+                    ) {
+                        if (loadingRates.isEmpty()) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Обновить курсы", tint = accentColor)
+                        } else {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = accentColor)
+                        }
+                    }
+                }
+                Bank.entries.forEach { bank ->
+                    val rate = rates[bank]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updateRateBank(bank) }
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = bank.shortTitle,
+                            fontSize = 15.sp,
+                            fontWeight = if (bank == rateBank) FontWeight.Bold else FontWeight.Normal,
+                            color = if (bank == rateBank) accentColor else mainTextColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = when {
+                                rate == null -> "—"
+                                rate.buy == rate.sell -> formatRate(rate.buy)
+                                else -> "${formatRate(rate.buy)} / ${formatRate(rate.sell)}"
+                            },
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = mainTextColor
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+            Text(
+                text = "При внесении рублей при учёте в долларах берётся курс продажи, при внесении долларов при учёте в рублях — курс покупки. У Нацбанка один официальный курс. Курс БНБ берётся со страницы сайта банка.",
+                fontSize = 13.sp,
+                color = labelTextColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+            )
 
             SectionCard("Внешний вид") {
                 SettingRow(title = "Тема", value = themeMode.title, onClick = { showThemeDialog = true })
@@ -224,7 +309,7 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
                     OutlinedTextField(
                         value = salaryText,
                         onValueChange = { if (it.all { c -> c.isDigit() }) salaryText = it },
-                        label = { Text("Сумма ($)") },
+                        label = { Text("Сумма (${appCurrency().label})") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -304,6 +389,36 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false }
+        )
+    }
+
+    if (showCurrencyDialog) {
+        OptionsDialog(
+            title = "Валюта учёта",
+            hint = "Уже внесённые суммы не пересчитываются: меняется только валюта, в которой ведётся учёт и показываются суммы.",
+            options = AppCurrency.entries.toList(),
+            selected = currency,
+            label = { it.title },
+            onSelect = {
+                viewModel.updateCurrency(it)
+                showCurrencyDialog = false
+            },
+            onDismiss = { showCurrencyDialog = false }
+        )
+    }
+
+    if (showBankDialog) {
+        OptionsDialog(
+            title = "Банк для конвертера",
+            hint = "Курс этого банка используется при внесении средств в другой валюте.",
+            options = Bank.entries.toList(),
+            selected = rateBank,
+            label = { it.title },
+            onSelect = {
+                viewModel.updateRateBank(it)
+                showBankDialog = false
+            },
+            onDismiss = { showBankDialog = false }
         )
     }
 

@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Transaction::class, SalaryConfig::class, PendingProject::class],
-    version = 4,
+    version = 5,
     exportSchema = true // Схемы сохраняются в app/schemas — по ним пишутся и проверяются миграции
 )
 @TypeConverters(DateConverter::class) // Подключаем наш конвертер дат
@@ -35,7 +35,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4)
+        // 4 -> 5: платеж, внесенный в другой валюте через конвертер
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE salary_transactions ADD COLUMN originalAmount REAL")
+                db.execSQL("ALTER TABLE salary_transactions ADD COLUMN originalCurrency TEXT")
+                db.execSQL("ALTER TABLE salary_transactions ADD COLUMN exchangeRate REAL")
+                db.execSQL("ALTER TABLE salary_transactions ADD COLUMN rateSource TEXT")
+            }
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5)
 
         // Метод для создания/получения базы данных (Pattern Singleton)
         fun getDatabase(context: Context): AppDatabase {

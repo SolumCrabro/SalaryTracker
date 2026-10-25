@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.money
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable // Добавлен для контроля анимации строк
@@ -207,7 +208,7 @@ fun ListScreen(viewModel: SalaryViewModel = viewModel()) {
             title = { Text(text = "Удаление платежа", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Вы уверены, что хотите удалить платеж на сумму $${String.format(Locale.US, "%,.0f", transactionToDelete!!.amount)}?",
+                    text = "Вы уверены, что хотите удалить платеж на сумму ${money(transactionToDelete!!.amount)}?",
                     fontSize = 15.sp
                 )
             },

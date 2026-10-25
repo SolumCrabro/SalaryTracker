@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appCurrency
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -247,7 +248,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel(), onOpenSettings: () -> U
                         onValueChange = { newValue ->
                             if (newValue.all { it.isDigit() }) inputSalaryText = newValue
                         },
-                        label = { Text("Сумма ($)") },
+                        label = { Text("Сумма (${appCurrency().label})") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),

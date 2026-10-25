@@ -9,7 +9,8 @@ data class BackupSettings(
     val startMonth: Int,
     val startYear: Int,
     val historyDepth: Int,
-    val themeMode: ThemeMode
+    val themeMode: ThemeMode,
+    val currency: AppCurrency = AppCurrency.USD
 )
 
 data class BackupData(
@@ -28,7 +29,7 @@ class BackupFormatException(message: String, cause: Throwable? = null) : Excepti
 */
 object BackupManager {
     const val APP_ID = "SalaryTracker"
-    const val FORMAT_VERSION = 2 // 2: у платежа есть projectId (частичные оплаты проектов)
+    const val FORMAT_VERSION = 3 // 2: projectId у платежа; 3: валюта учёта и данные конвертера
 
     fun toJson(data: BackupData): String {
         val root = JSONObject()
@@ -42,6 +43,7 @@ object BackupManager {
             put("startYear", data.settings.startYear)
             put("historyDepth", data.settings.historyDepth)
             put("themeMode", data.settings.themeMode.name)
+            put("currency", data.settings.currency.name)
         })
 
         root.put("transactions", JSONArray().apply {
@@ -54,6 +56,10 @@ object BackupManager {
                     put("isSideIncome", t.isSideIncome)
                     put("sourceNote", t.sourceNote ?: JSONObject.NULL)
                     put("projectId", t.projectId ?: JSONObject.NULL)
+                    put("originalAmount", t.originalAmount ?: JSONObject.NULL)
+                    put("originalCurrency", t.originalCurrency ?: JSONObject.NULL)
+                    put("exchangeRate", t.exchangeRate ?: JSONObject.NULL)
+                    put("rateSource", t.rateSource ?: JSONObject.NULL)
                 })
             }
         })
@@ -101,7 +107,8 @@ object BackupManager {
                 startMonth = startMonth,
                 startYear = s.getInt("startYear"),
                 historyDepth = s.getInt("historyDepth").coerceAtLeast(1),
-                themeMode = ThemeMode.fromName(s.optString("themeMode"))
+                themeMode = ThemeMode.fromName(s.optString("themeMode")),
+                currency = AppCurrency.fromName(s.optString("currency"))
             )
 
             val transactions = root.getJSONArray("transactions").objects().map { o ->
@@ -112,7 +119,11 @@ object BackupManager {
                     paymentType = o.getString("paymentType"),
                     isSideIncome = o.optBoolean("isSideIncome", false),
                     sourceNote = if (o.isNull("sourceNote")) null else o.optString("sourceNote"),
-                    projectId = if (o.isNull("projectId")) null else o.getInt("projectId")
+                    projectId = if (o.isNull("projectId")) null else o.getInt("projectId"),
+                    originalAmount = if (o.isNull("originalAmount")) null else o.getDouble("originalAmount"),
+                    originalCurrency = if (o.isNull("originalCurrency")) null else o.getString("originalCurrency"),
+                    exchangeRate = if (o.isNull("exchangeRate")) null else o.getDouble("exchangeRate"),
+                    rateSource = if (o.isNull("rateSource")) null else o.getString("rateSource")
                 )
             }
 

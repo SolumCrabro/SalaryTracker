@@ -30,6 +30,9 @@ class AppSettings(private val context: Context) {
         val KEY_START_YEAR = intPreferencesKey("start_year")   // Год старта (например, 2026)
         val KEY_HISTORY_DEPTH = intPreferencesKey("history_depth") // Сколько месяцев показывать (1, 2, 3)
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode") // SYSTEM / LIGHT / DARK
+        val KEY_CURRENCY = stringPreferencesKey("currency")     // USD / BYN — валюта учёта
+        val KEY_RATE_BANK = stringPreferencesKey("rate_bank")   // Банк для конвертера
+        fun rateKey(bank: Bank) = stringPreferencesKey("rate_${bank.name}") // Последний полученный курс
     }
 
     val isFirstRun: Flow<Boolean> = context.dataStore.data.map { it[KEY_IS_FIRST_RUN] ?: true }
@@ -38,6 +41,11 @@ class AppSettings(private val context: Context) {
     val startYear: Flow<Int> = context.dataStore.data.map { it[KEY_START_YEAR] ?: 2026 }
     val historyDepth: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_DEPTH] ?: 3 }
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.fromName(it[KEY_THEME_MODE]) }
+    val currency: Flow<AppCurrency> = context.dataStore.data.map { AppCurrency.fromName(it[KEY_CURRENCY]) }
+    val rateBank: Flow<Bank> = context.dataStore.data.map { Bank.fromName(it[KEY_RATE_BANK]) }
+    val cachedRates: Flow<Map<Bank, ExchangeRate>> = context.dataStore.data.map { pref ->
+        Bank.entries.mapNotNull { bank -> ExchangeRate.deserialize(bank, pref[rateKey(bank)])?.let { bank to it } }.toMap()
+    }
 
     suspend fun saveInitialSettings(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
         context.dataStore.edit { pref ->
@@ -66,5 +74,17 @@ class AppSettings(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
+
+    suspend fun setCurrency(currency: AppCurrency) {
+        context.dataStore.edit { it[KEY_CURRENCY] = currency.name }
+    }
+
+    suspend fun setRateBank(bank: Bank) {
+        context.dataStore.edit { it[KEY_RATE_BANK] = bank.name }
+    }
+
+    suspend fun saveRate(rate: ExchangeRate) {
+        context.dataStore.edit { it[rateKey(rate.bank)] = rate.serialize() }
     }
 }

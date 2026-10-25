@@ -14,13 +14,15 @@ class BackupManagerTest {
             startMonth = 11,
             startYear = 2025,
             historyDepth = 3,
-            themeMode = ThemeMode.DARK
+            themeMode = ThemeMode.DARK,
+            currency = AppCurrency.BYN
         ),
         transactions = listOf(
             Transaction(id = 1, amount = 1000.0, date = LocalDate.of(2025, 12, 5), paymentType = "CARD"),
             Transaction(
                 id = 2, amount = 300.5, date = LocalDate.of(2026, 1, 3), paymentType = "CASH",
-                isSideIncome = true, sourceNote = "Сайт \"Ромашка\"", projectId = 7
+                isSideIncome = true, sourceNote = "Сайт \"Ромашка\"", projectId = 7,
+                originalAmount = 500.0, originalCurrency = "BYN", exchangeRate = 2.95, rateSource = "НБРБ"
             )
         ),
         salaryConfigs = listOf(SalaryConfig("DECEMBER_2025", 2000.0)),

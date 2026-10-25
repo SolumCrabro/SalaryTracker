@@ -10,7 +10,11 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
+import com.example.salarytracker.data.AppCurrency
 import com.example.salarytracker.data.AppDatabase
+import com.example.salarytracker.data.Bank
+import com.example.salarytracker.data.ExchangeRate
+import com.example.salarytracker.data.rates.RatesApi
 import com.example.salarytracker.data.AppSettings
 import com.example.salarytracker.data.BackupData
 import com.example.salarytracker.data.BackupFormatException
@@ -44,6 +48,37 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     // --- НАСТРОЙКИ ДЛЯ ЭКРАНА "НАСТРОЙКИ" ---
     val themeMode: StateFlow<ThemeMode> = appSettings.themeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val currency: StateFlow<AppCurrency> = appSettings.currency
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppCurrency.USD)
+
+    // --- КУРСЫ ВАЛЮТ ---
+    val rateBank: StateFlow<Bank> = appSettings.rateBank
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Bank.NBRB)
+    val cachedRates: StateFlow<Map<Bank, ExchangeRate>> = appSettings.cachedRates
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    private val _loadingRates = MutableStateFlow<Set<Bank>>(emptySet())
+    val loadingRates: StateFlow<Set<Bank>> = _loadingRates.asStateFlow()
+
+    fun refreshRate(bank: Bank, onError: (String) -> Unit = {}) {
+        if (bank in _loadingRates.value) return
+        _loadingRates.update { it + bank }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { RatesApi.fetch(bank).also { appSettings.saveRate(it) } }
+            }
+            _loadingRates.update { it - bank }
+            result.onFailure { onError("Не удалось обновить курс ${bank.shortTitle}. Проверьте интернет") }
+        }
+    }
+
+    fun updateRateBank(bank: Bank) {
+        viewModelScope.launch(Dispatchers.IO) { appSettings.setRateBank(bank) }
+    }
+
+    fun updateCurrency(currency: AppCurrency) {
+        viewModelScope.launch(Dispatchers.IO) { appSettings.setCurrency(currency) }
+    }
+
     val defaultSalaryState: StateFlow<Double?> = defaultSalary
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val startDateState: StateFlow<LocalDate?> = combine(startMonth, startYear) { m, y -> LocalDate.of(y, m, 1) }
@@ -101,10 +136,27 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addTransaction(amount: Double, date: LocalDate, paymentType: String) { // Добавили параметр
+    // amount — в валюте учёта; original* заполняются, если сумма внесена через конвертер
+    fun addTransaction(
+        amount: Double,
+        date: LocalDate,
+        paymentType: String,
+        originalAmount: Double? = null,
+        originalCurrency: AppCurrency? = null,
+        exchangeRate: Double? = null,
+        rateSource: String? = null
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.insertTransaction(
-                Transaction(amount = amount, date = date, paymentType = paymentType)
+                Transaction(
+                    amount = amount,
+                    date = date,
+                    paymentType = paymentType,
+                    originalAmount = originalAmount,
+                    originalCurrency = originalCurrency?.name,
+                    exchangeRate = exchangeRate,
+                    rateSource = rateSource
+                )
             )
         }
     }
@@ -230,7 +282,8 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                             startMonth = startMonth.first(),
                             startYear = startYear.first(),
                             historyDepth = historyDepth.first(),
-                            themeMode = appSettings.themeMode.first()
+                            themeMode = appSettings.themeMode.first(),
+                            currency = appSettings.currency.first()
                         ),
                         transactions = transactionDao.getAllTransactionsOnce(),
                         salaryConfigs = transactionDao.getAllSalaryConfigsOnce(),
@@ -283,6 +336,7 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
                     with(data.settings) {
                         appSettings.saveInitialSettings(defaultSalary, startMonth, startYear, historyDepth)
                         appSettings.setThemeMode(themeMode)
+                        appSettings.setCurrency(currency)
                     }
                 }
             }

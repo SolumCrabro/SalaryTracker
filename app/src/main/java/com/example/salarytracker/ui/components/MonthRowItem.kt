@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.components
 
+import com.example.salarytracker.ui.theme.money
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import com.example.salarytracker.ui.theme.isAppInDarkTheme
@@ -59,8 +60,8 @@ fun MonthRowItem(
     val debtColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
 
     // Исправленное безопасное форматирование чисел кодом
-    val formattedDebt = String.format(java.util.Locale.US, "%,.0f", debt)
-    val formattedSalary = String.format(java.util.Locale.US, "%,.0f", salary)
+    val formattedDebt = money(debt)
+    val formattedSalary = money(salary)
 
     Card(
         modifier = Modifier
@@ -101,7 +102,7 @@ fun MonthRowItem(
                 Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1.0f)) {
                     Text(text = "Остаток", fontSize = 11.sp, color = labelTextColor)
                     Text(
-                        text = "\$$formattedDebt",
+                        text = formattedDebt,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = debtColor
@@ -111,7 +112,7 @@ fun MonthRowItem(
                 Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1.0f)) {
                     Text(text = "Зарплата", fontSize = 11.sp, color = labelTextColor)
                     Text(
-                        text = "\$$formattedSalary",
+                        text = formattedSalary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = salaryColor

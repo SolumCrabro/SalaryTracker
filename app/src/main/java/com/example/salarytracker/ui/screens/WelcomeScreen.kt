@@ -1,5 +1,6 @@
 package com.example.salarytracker.ui.screens
 
+import com.example.salarytracker.ui.theme.appCurrency
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -132,7 +133,7 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                         OutlinedTextField(
                             value = salaryText,
                             onValueChange = { if (it.all { char -> char.isDigit() }) salaryText = it },
-                            label = { Text("Зарплата по умолчанию в месяц ($)") },
+                            label = { Text("Зарплата по умолчанию в месяц (${appCurrency().label})") },
                             placeholder = { Text("Например, 1500") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),

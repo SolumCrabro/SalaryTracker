@@ -84,7 +84,11 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateCurrency(currency: AppCurrency) {
-        viewModelScope.launch(Dispatchers.IO) { appSettings.setCurrency(currency) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val hasData = transactionDao.getAllTransactionsOnce().isNotEmpty() ||
+                transactionDao.getAllProjectsOnce().isNotEmpty()
+            if (!hasData) appSettings.setCurrency(currency)
+        }
     }
 
     val defaultSalaryState: StateFlow<Double?> = defaultSalary
@@ -101,6 +105,11 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
 
     val allPendingProjects: StateFlow<List<PendingProject>> = transactionDao.getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val canChangeCurrency: StateFlow<Boolean> = combine(
+        transactionDao.getAllTransactions(), transactionDao.getAllProjects()
+    ) { transactions, projects -> transactions.isEmpty() && projects.isEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // Проекты в работе с их частичными оплатами
     val projectProgress: StateFlow<List<ProjectProgress>> = combine(

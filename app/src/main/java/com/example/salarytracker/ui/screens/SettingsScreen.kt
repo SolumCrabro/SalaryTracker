@@ -67,6 +67,7 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
     val historyDepth by viewModel.historyDepthState.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val currency by viewModel.currency.collectAsState()
+    val canChangeCurrency by viewModel.canChangeCurrency.collectAsState()
     val accent by viewModel.accentColor.collectAsState()
     val rateBank by viewModel.rateBank.collectAsState()
     val rates by viewModel.cachedRates.collectAsState()
@@ -143,15 +144,20 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
     }
 
     @Composable
-    fun SettingRow(title: String, value: String?, onClick: () -> Unit) {
+    fun SettingRow(title: String, value: String?, subtitle: String? = null, onClick: (() -> Unit)?) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = title, fontSize = 16.sp, color = mainTextColor, modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, fontSize = 16.sp, color = mainTextColor)
+                if (subtitle != null) {
+                    Text(text = subtitle, fontSize = 13.sp, color = labelTextColor)
+                }
+            }
             if (value != null) {
                 Text(text = value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = accentColor)
             }
@@ -212,7 +218,8 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
                 SettingRow(
                     title = "Валюта учёта",
                     value = currency.code,
-                    onClick = { showCurrencyDialog = true }
+                    subtitle = if (canChangeCurrency) null else "Выбирается при первом запуске. Изменить можно, пока нет платежей и проектов",
+                    onClick = if (canChangeCurrency) ({ showCurrencyDialog = true }) else null
                 )
             }
 
@@ -433,10 +440,10 @@ fun SettingsScreen(viewModel: SalaryViewModel, onBack: () -> Unit) {
         )
     }
 
-    if (showCurrencyDialog) {
+    if (showCurrencyDialog && canChangeCurrency) {
         OptionsDialog(
             title = "Валюта учёта",
-            hint = "Уже внесённые суммы не пересчитываются: меняется только валюта, в которой ведётся учёт и показываются суммы.",
+            hint = "После первого платежа или проекта валюту изменить будет нельзя.",
             options = AppCurrency.entries.toList(),
             selected = currency,
             label = { it.title },

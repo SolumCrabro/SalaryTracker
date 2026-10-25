@@ -36,4 +36,32 @@ interface TransactionDao {
 
     @Delete
     suspend fun deleteProject(project: PendingProject)
+
+    // --- ФУНКЦИИ ДЛЯ РЕЗЕРВНОЙ КОПИИ ---
+    @Query("SELECT * FROM salary_transactions ORDER BY date ASC, id ASC")
+    suspend fun getAllTransactionsOnce(): List<Transaction>
+
+    @Query("SELECT * FROM salary_configs")
+    suspend fun getAllSalaryConfigsOnce(): List<SalaryConfig>
+
+    @Query("SELECT * FROM pending_projects ORDER BY date ASC, id ASC")
+    suspend fun getAllProjectsOnce(): List<PendingProject>
+
+    @Query("DELETE FROM salary_transactions")
+    suspend fun deleteAllTransactions()
+
+    @Query("DELETE FROM salary_configs")
+    suspend fun deleteAllSalaryConfigs()
+
+    @Query("DELETE FROM pending_projects")
+    suspend fun deleteAllProjects()
+
+    @Insert
+    suspend fun insertTransactions(transactions: List<Transaction>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSalaryConfigs(configs: List<SalaryConfig>)
+
+    @Insert
+    suspend fun insertProjects(projects: List<PendingProject>)
 }

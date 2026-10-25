@@ -5,6 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
@@ -60,9 +63,19 @@ fun SalaryTrackerTheme(
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography, // Твои стандартные шрифты
-        content = content
-    )
+    CompositionLocalProvider(LocalAppDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography, // Твои стандартные шрифты
+            content = content
+        )
+    }
 }
+
+// Тема, выбранная в настройках (Как в системе / Светлая / Тёмная)
+val LocalAppDarkTheme = staticCompositionLocalOf { false }
+
+// Используется во всех экранах вместо isSystemInDarkTheme(), чтобы учитывать выбор пользователя
+@Composable
+@ReadOnlyComposable
+fun isAppInDarkTheme(): Boolean = LocalAppDarkTheme.current

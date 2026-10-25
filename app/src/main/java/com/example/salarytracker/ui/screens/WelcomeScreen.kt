@@ -1,5 +1,8 @@
 package com.example.salarytracker.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -9,7 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,11 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.salarytracker.data.BackupData
+import com.example.salarytracker.ui.components.BackupRestoreDialog
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,8 +46,23 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
     var salaryText by remember { mutableStateOf("") }
     val now = LocalDate.now()
     val ruLocale = Locale("ru")
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val localCoroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Восстановление после переустановки: выбираем файл копии вместо повторной настройки
+    var pendingRestore by remember { mutableStateOf<BackupData?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            viewModel.readBackup(uri) { result ->
+                result
+                    .onSuccess { pendingRestore = it }
+                    .onFailure {
+                        Toast.makeText(context, it.message ?: "Файл не похож на копию SalaryTracker", Toast.LENGTH_LONG).show()
+                    }
+            }
+        }
+    }
 
     val startMonthOptions = (0..3).map { now.minusMonths(it.toLong()) }
     var selectedStartDate by remember { mutableStateOf(startMonthOptions[0]) }
@@ -246,9 +267,32 @@ fun WelcomeScreen(onFinished: () -> Unit, viewModel: SalaryViewModel = viewModel
                             Text(text = "Начать работу", fontSize = 18.sp, fontWeight = FontWeight.Bold, color =
                                 if (isDark) Color(0xFF111214) else Color.White)
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = { importLauncher.launch(BACKUP_MIME_TYPES) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Восстановить из копии", fontSize = 15.sp, color = buttonColor)
+                        }
                     }
                 }
             }
         }
+    }
+
+    pendingRestore?.let { backup ->
+        BackupRestoreDialog(
+            backup = backup,
+            onConfirm = {
+                pendingRestore = null
+                viewModel.restoreBackup(backup) { success, message ->
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    if (success) onFinished()
+                }
+            },
+            onDismiss = { pendingRestore = null }
+        )
     }
 }

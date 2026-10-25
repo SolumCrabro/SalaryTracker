@@ -2,7 +2,7 @@ package com.example.salarytracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +32,7 @@ fun MonthRowItem(
     isCurrentMonth: Boolean = false,
     isActive: Boolean = true
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val alpha = if (isActive) 1f else 0.4f
     val hasDebt = debt > 0
 

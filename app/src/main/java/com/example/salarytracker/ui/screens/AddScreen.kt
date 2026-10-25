@@ -12,7 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +45,7 @@ fun AddScreen(viewModel: SalaryViewModel = viewModel()) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var selectedPaymentType by remember { mutableStateOf("CARD") }
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val context = LocalContext.current
 

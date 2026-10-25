@@ -7,13 +7,19 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,25 +32,26 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.salarytracker.ui.components.CurrentMonthCard
 import com.example.salarytracker.ui.components.MonthRowItem
-import com.example.salarytracker.ui.viewmodel.MonthSummary
+import com.example.salarytracker.domain.MonthSummary
+import com.example.salarytracker.domain.SalaryCalculator
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch // Импорт для запуска корутин
 
 @Composable
-fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
+fun HomeScreen(viewModel: SalaryViewModel = viewModel(), onOpenSettings: () -> Unit = {}) {
     val monthlyData by viewModel.monthlySummaries.collectAsState()
-    val isDark = isSystemInDarkTheme()
+    val allSummaries by viewModel.allActiveSummaries.collectAsState()
+    val olderMonths by viewModel.olderSummaries.collectAsState()
+    var showOlderMonths by rememberSaveable { mutableStateOf(false) }
+    val isDark = isAppInDarkTheme()
     val localCoroutineScope = rememberCoroutineScope() // Создали область для анимации списка
 
-    val currentMonthInfo = monthlyData.find { it.isCurrentMonth }
+    val currentMonthInfo = allSummaries.find { it.isCurrentMonth }
     val currentMonthName = currentMonthInfo?.monthName ?: "Текущий"
 
-    val activeMonths = monthlyData.filter { it.isActive }
-    val totalDebtValue = activeMonths.sumOf { it.debt }
-    val currentMonthSurplus = currentMonthInfo?.surplus ?: 0.0
-
-    val finalCardBalance = if (currentMonthSurplus > 0) -currentMonthSurplus else totalDebtValue
+    // Долг и переплата считаются по ВСЕМ месяцам с начала учета, а не только по видимым в истории
+    val finalCardBalance = SalaryCalculator.totalBalance(allSummaries)
 
     var showDialog by remember { mutableStateOf(false) }
     var selectedMonthSummary by remember { mutableStateOf<MonthSummary?>(null) }
@@ -56,7 +63,14 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
         isVisible = true
     }
 
+    val onMonthClick: (MonthSummary) -> Unit = { summary ->
+        selectedMonthSummary = summary
+        inputSalaryText = summary.totalSalary.toInt().toString()
+        showDialog = true
+    }
+
     val mainBgColor = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
+    val accentColor = if (isDark) Color(0xFFE5B067) else Color(0xFFBD7C5D)
     val headerTextColor = if (isDark) Color.White else Color(0xFF1A1C1E)
 
     Box(
@@ -73,13 +87,29 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                 visible = isVisible,
                 enter = fadeIn(animationSpec = tween(500))
             ) {
-                Text(
-                    text = "Мои деньги",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = headerTextColor
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Мои деньги",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 8.dp),
+                        color = headerTextColor
+                    )
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки",
+                            tint = Color(0xFF7A7D84)
+                        )
+                    }
+                }
             }
 
             AnimatedVisibility(
@@ -147,23 +177,49 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
                                 alpha = itemAlpha.value
                                 translationY = itemOffsetY.value
                             }
-                            .clickable(enabled = summary.isActive) {
-                                selectedMonthSummary = summary
-                                inputSalaryText = summary.totalSalary.toInt().toString()
-                                showDialog = true
-                            }
+                            .clickable(enabled = summary.isActive) { onMonthClick(summary) }
                     ) {
-                        val hasSurplus = summary.surplus > 0
-                        val displayDebt = if (hasSurplus) 0.0 else summary.debt
+                        HomeMonthRow(summary)
+                    }
+                }
 
-                        MonthRowItem(
-                            monthName = summary.monthName,
-                            subTitle = summary.year.toString(),
-                            debt = displayDebt,
-                            salary = summary.totalSalary,
-                            isCurrentMonth = summary.isCurrentMonth,
-                            isActive = summary.isActive
-                        )
+                // Прошедшие месяцы старше глубины истории — для ознакомления, раскрываются по кнопке
+                if (olderMonths.isNotEmpty()) {
+                    item(key = "older_toggle") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .clickable { showOlderMonths = !showOlderMonths }
+                                .padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (showOlderMonths) "Скрыть прошедшие месяцы" else "Показать все прошедшие (${olderMonths.size})",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = accentColor
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = if (showOlderMonths) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = accentColor
+                            )
+                        }
+                    }
+
+                    if (showOlderMonths) {
+                        items(olderMonths, key = { it.dbKey }) { summary ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onMonthClick(summary) }
+                            ) {
+                                HomeMonthRow(summary)
+                            }
+                        }
                     }
                 }
             }
@@ -180,7 +236,7 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             containerColor = dialogBg,
             titleContentColor = dialogTitle,
             textContentColor = Color(0xFF7A7D84),
-            title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName}", fontWeight = FontWeight.Bold) },
+            title = { Text(text = "Зарплата за ${selectedMonthSummary!!.monthName} ${selectedMonthSummary!!.year}", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     // ИСПРАВЛЕНИЕ: Восстановлено слово Text вместо сломанного ext
@@ -227,4 +283,17 @@ fun HomeScreen(viewModel: SalaryViewModel = viewModel()) {
             }
         )
     }
+}
+
+@Composable
+private fun HomeMonthRow(summary: MonthSummary) {
+    val displayDebt = if (summary.surplus > 0) 0.0 else summary.debt
+    MonthRowItem(
+        monthName = summary.monthName,
+        subTitle = summary.year.toString(),
+        debt = displayDebt,
+        salary = summary.totalSalary,
+        isCurrentMonth = summary.isCurrentMonth,
+        isActive = summary.isActive
+    )
 }

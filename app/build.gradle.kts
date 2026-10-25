@@ -25,8 +25,8 @@ android {
         applicationId = "com.example.salarytracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -52,6 +52,11 @@ android {
     }
 }
 
+// Схемы Room для миграций (папку app/schemas нужно хранить в git)
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.0") // Используй актуальную версию
     implementation(libs.androidx.compose.foundation)
@@ -69,6 +74,8 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     testImplementation(libs.junit)
+    // В юнит-тестах android.jar содержит только заглушки org.json
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

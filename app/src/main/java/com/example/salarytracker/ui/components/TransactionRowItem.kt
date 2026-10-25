@@ -1,7 +1,7 @@
 package com.example.salarytracker.ui.components
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TransactionRowItem(transaction: Transaction) {
     val dateFormatter = DateTimeFormatter.ofPattern("dd MMMM yyyy")
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
 
     val isSide = transaction.isSideIncome
     val isCard = transaction.paymentType == "CARD"

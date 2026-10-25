@@ -28,21 +28,31 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.salarytracker.data.ThemeMode
 import com.example.salarytracker.navigation.Screen
 import com.example.salarytracker.ui.screens.AddScreen
 import com.example.salarytracker.ui.screens.AnalyticsScreen
 import com.example.salarytracker.ui.screens.HomeScreen
 import com.example.salarytracker.ui.screens.ListScreen
+import com.example.salarytracker.ui.screens.SettingsScreen
 import com.example.salarytracker.ui.screens.WelcomeScreen
 import com.example.salarytracker.ui.theme.SalaryTrackerTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import com.example.salarytracker.ui.viewmodel.SalaryViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SalaryTrackerTheme {
-                val isDark = isSystemInDarkTheme()
+            val salaryViewModel: SalaryViewModel = viewModel()
+            val themeMode by salaryViewModel.themeMode.collectAsState()
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            SalaryTrackerTheme(darkTheme = darkTheme) {
+                val isDark = isAppInDarkTheme()
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = if (isDark) Color(0xFF111214) else Color(0xFFF3F4F6)
@@ -61,7 +71,7 @@ fun MainAppScreen() {
     val salaryViewModel: SalaryViewModel = viewModel()
     val isFirstRun by salaryViewModel.isFirstRun.collectAsState()
     val items = listOf(Screen.Home, Screen.Analytics, Screen.Add, Screen.List)
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
 
     if (isFirstRun == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -72,7 +82,7 @@ fun MainAppScreen() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != Screen.Welcome.route
+    val showBottomBar = currentRoute != Screen.Welcome.route && currentRoute != Screen.Settings.route
 
     val goldGradient = if (isDark) {
         Brush.linearGradient(listOf(Color(0xFFE5B067).copy(alpha = 0.5f), Color(0xFF9E7743).copy(alpha = 0.15f)))
@@ -176,10 +186,18 @@ fun MainAppScreen() {
                     }
                 }, viewModel = salaryViewModel)
             }
-            composable(Screen.Home.route) { HomeScreen(viewModel = salaryViewModel) }
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    viewModel = salaryViewModel,
+                    onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }
+                )
+            }
             composable(Screen.Add.route) { AddScreen(viewModel = salaryViewModel) }
             composable(Screen.List.route) { ListScreen(viewModel = salaryViewModel) }
             composable(Screen.Analytics.route) { AnalyticsScreen(viewModel = salaryViewModel) }
+            composable(Screen.Settings.route) {
+                SettingsScreen(viewModel = salaryViewModel, onBack = { navController.popBackStack() })
+            }
         }
     }
 }

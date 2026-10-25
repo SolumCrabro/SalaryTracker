@@ -1,7 +1,7 @@
 package com.example.salarytracker.ui.components
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -21,7 +21,7 @@ fun CurrentMonthCard(
     totalDebt: Double,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val isSurplus = totalDebt < 0
     val displayAmount = if (isSurplus) -totalDebt else totalDebt
 

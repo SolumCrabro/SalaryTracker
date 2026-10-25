@@ -6,35 +6,32 @@ package com.example.salarytracker.ui.viewmodel
 сохранения новой записи.
 */
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.salarytracker.data.AppDatabase
 import com.example.salarytracker.data.AppSettings
+import com.example.salarytracker.data.BackupData
+import com.example.salarytracker.data.BackupFormatException
+import com.example.salarytracker.data.BackupManager
+import com.example.salarytracker.data.BackupSettings
 import com.example.salarytracker.data.PendingProject
 import com.example.salarytracker.data.SalaryConfig
+import com.example.salarytracker.data.ThemeMode
 import com.example.salarytracker.data.Transaction
+import com.example.salarytracker.domain.MonthSummary
+import com.example.salarytracker.domain.SalaryCalculator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
-import java.time.format.TextStyle
-import java.util.Locale
-
-data class MonthSummary(
-    val monthName: String,
-    val year: Int,
-    val totalSalary: Double,
-    val totalPaid: Double,
-    val debt: Double,
-    val surplus: Double, // НОВОЕ ПОЛЕ: Сумма профицита (переплаты) в этом месяце
-    val isCurrentMonth: Boolean,
-    val isActive: Boolean,
-    val dbKey: String
-)
 
 class SalaryViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val transactionDao = AppDatabase.getDatabase(application).transactionDao()
+    private val database = AppDatabase.getDatabase(application)
+    private val transactionDao = database.transactionDao()
     private val appSettings = AppSettings(application)
 
     val isFirstRun = appSettings.isFirstRun.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -42,6 +39,16 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     private val startMonth = appSettings.startMonth
     private val startYear = appSettings.startYear
     private val historyDepth = appSettings.historyDepth
+
+    // --- НАСТРОЙКИ ДЛЯ ЭКРАНА "НАСТРОЙКИ" ---
+    val themeMode: StateFlow<ThemeMode> = appSettings.themeMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val defaultSalaryState: StateFlow<Double?> = defaultSalary
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val startDateState: StateFlow<LocalDate?> = combine(startMonth, startYear) { m, y -> LocalDate.of(y, m, 1) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val historyDepthState: StateFlow<Int?> = historyDepth
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -51,101 +58,33 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     val allPendingProjects: StateFlow<List<PendingProject>> = transactionDao.getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Все месяцы от начала учета до текущего, в хронологическом порядке
     val allActiveSummaries: StateFlow<List<MonthSummary>> = combine(
         allTransactions, allSalaryConfigs, defaultSalary, startMonth, startYear
-    ) { args ->
-        @Suppress("UNCHECKED_CAST") val transactions = args[0] as List<Transaction>
-        @Suppress("UNCHECKED_CAST") val configs = args[1] as List<SalaryConfig>
-        val defSalary = args[2] as Double
-        val stMonth = args[3] as Int
-        val stYear = args[4] as Int
-
-        val now = LocalDate.now()
-        val configsMap = configs.associate { it.monthYearKey to it.customSalary }
-        val startFirstDay = LocalDate.of(stYear, stMonth, 1)
-        val currentFirstDay = LocalDate.of(now.year, now.monthValue, 1)
-
-        // 1. Формируем полную хронологическую цепочку от стартового месяца до текущего
-        val firstCalculationMonth = if (startFirstDay.isBefore(currentFirstDay)) startFirstDay else currentFirstDay
-        
-        val fullMonthsChain = mutableListOf<LocalDate>()
-        var curr = firstCalculationMonth
-        while (!curr.isAfter(currentFirstDay)) {
-            fullMonthsChain.add(curr)
-            curr = curr.plusMonths(1)
-        }
-
-        // Считаем сумму ТОЛЬКО основных выплат зарплаты (исключаем "левые приходы" / подработки)
-        var totalMoneyAvailable = transactions.filter { !it.isSideIncome }.sumOf { it.amount }
-
-        val allCalculatedSummaries = mutableListOf<MonthSummary>()
-
-        fullMonthsChain.forEach { targetDate ->
-            val monthNameEng = targetDate.month.name
-            val dbKey = "${monthNameEng}_${targetDate.year}"
-
-            val isActive = !targetDate.isBefore(startFirstDay)
-            val planSalary = configsMap[dbKey] ?: defSalary
-
-            val debt: Double
-            val surplus: Double
-            val totalPaidForThisMonth: Double
-
-            if (isActive) {
-                if (totalMoneyAvailable >= planSalary) {
-                    // ЕСЛИ ДЕНЕГ ХВАТАЕТ НА ПЛАН ЗАРПЛАТЫ:
-                    debt = 0.0
-
-                    val isCurrent = targetDate.month == now.month && targetDate.year == now.year
-                    if (isCurrent) {
-                        surplus = totalMoneyAvailable - planSalary
-                        totalPaidForThisMonth = planSalary + surplus
-                    } else {
-                        surplus = 0.0
-                        totalPaidForThisMonth = planSalary
-                    }
-
-                    totalMoneyAvailable -= planSalary
-                } else if (totalMoneyAvailable > 0) {
-                    // Частичное погашение
-                    totalPaidForThisMonth = totalMoneyAvailable
-                    debt = planSalary - totalMoneyAvailable
-                    surplus = 0.0
-                    totalMoneyAvailable = 0.0
-                } else {
-                    // Денег нет
-                    totalPaidForThisMonth = 0.0
-                    debt = planSalary
-                    surplus = 0.0
-                }
-            } else {
-                totalPaidForThisMonth = 0.0
-                debt = 0.0
-                surplus = 0.0
-            }
-
-            allCalculatedSummaries.add(
-                MonthSummary(
-                    monthName = targetDate.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru")).replaceFirstChar { it.uppercase() },
-                    year = targetDate.year,
-                    totalSalary = planSalary,
-                    totalPaid = totalPaidForThisMonth,
-                    debt = debt,
-                    surplus = surplus,
-                    isCurrentMonth = targetDate.month == now.month && targetDate.year == now.year,
-                    isActive = isActive,
-                    dbKey = dbKey
-                )
-            )
-        }
-
-        allCalculatedSummaries
+    ) { transactions, configs, defSalary, stMonth, stYear ->
+        SalaryCalculator.calculate(
+            // Считаем сумму ТОЛЬКО основных выплат зарплаты (исключаем "левые приходы" / подработки)
+            mainIncomeTotal = transactions.filter { !it.isSideIncome }.sumOf { it.amount },
+            salaryOverrides = configs.associate { it.monthYearKey to it.customSalary },
+            defaultSalary = defSalary,
+            startMonth = stMonth,
+            startYear = stYear,
+            today = LocalDate.now()
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Последние N месяцев (N = глубина истории), от новых к старым
     val monthlySummaries: StateFlow<List<MonthSummary>> = combine(
         allActiveSummaries, historyDepth
     ) { summaries, depth ->
         summaries.takeLast(depth).reversed()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Остальные учтенные месяцы старше N, от новых к старым (раскрываются на главной)
+    val olderSummaries: StateFlow<List<MonthSummary>> = combine(
+        allActiveSummaries, historyDepth
+    ) { summaries, depth ->
+        summaries.dropLast(depth).filter { it.isActive }.reversed()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun completeOnboarding(salary: Double, startMonth: Int, startYear: Int, depth: Int) {
@@ -203,6 +142,122 @@ class SalaryViewModel(application: Application) : AndroidViewModel(application) 
     fun deletePendingProject(project: PendingProject) {
         viewModelScope.launch(Dispatchers.IO) {
             transactionDao.deleteProject(project)
+        }
+    }
+
+    // --- МЕТОДЫ ДЛЯ ЭКРАНА НАСТРОЕК ---
+
+    /*
+    Новый оклад действует с текущего месяца: прошлым месяцам без ручной зарплаты
+    сначала фиксируется старый оклад, чтобы их долг не пересчитался задним числом.
+    */
+    fun updateDefaultSalary(newSalary: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val oldSalary = defaultSalary.first()
+            if (oldSalary == newSalary) return@launch
+
+            val overriddenKeys = transactionDao.getAllSalaryConfigsOnce().map { it.monthYearKey }.toSet()
+            val currentFirstDay = LocalDate.now().withDayOfMonth(1)
+            var month = LocalDate.of(startYear.first(), startMonth.first(), 1)
+            val frozenMonths = mutableListOf<SalaryConfig>()
+            while (month.isBefore(currentFirstDay)) {
+                val key = SalaryCalculator.monthKey(month)
+                if (key !in overriddenKeys) frozenMonths.add(SalaryConfig(key, oldSalary))
+                month = month.plusMonths(1)
+            }
+            database.withTransaction {
+                transactionDao.insertSalaryConfigs(frozenMonths)
+            }
+            appSettings.setDefaultSalary(newSalary)
+        }
+    }
+
+    fun updateStartMonth(date: LocalDate) {
+        viewModelScope.launch(Dispatchers.IO) {
+            appSettings.setStartMonth(date.monthValue, date.year)
+        }
+    }
+
+    fun updateHistoryDepth(depth: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            appSettings.setHistoryDepth(depth)
+        }
+    }
+
+    fun updateThemeMode(mode: ThemeMode) {
+        viewModelScope.launch(Dispatchers.IO) {
+            appSettings.setThemeMode(mode)
+        }
+    }
+
+    // --- РЕЗЕРВНАЯ КОПИЯ ---
+
+    fun exportBackup(uri: Uri, onResult: (success: Boolean, message: String) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val data = BackupData(
+                        createdAt = LocalDate.now(),
+                        settings = BackupSettings(
+                            defaultSalary = defaultSalary.first(),
+                            startMonth = startMonth.first(),
+                            startYear = startYear.first(),
+                            historyDepth = historyDepth.first(),
+                            themeMode = appSettings.themeMode.first()
+                        ),
+                        transactions = transactionDao.getAllTransactionsOnce(),
+                        salaryConfigs = transactionDao.getAllSalaryConfigsOnce(),
+                        projects = transactionDao.getAllProjectsOnce()
+                    )
+                    val stream = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                        ?: error("Не удалось открыть файл для записи")
+                    stream.bufferedWriter(Charsets.UTF_8).use { it.write(BackupManager.toJson(data)) }
+                    data
+                }
+            }
+            result
+                .onSuccess { onResult(true, "Копия сохранена: платежей — ${it.transactions.size}, проектов — ${it.projects.size}") }
+                .onFailure { onResult(false, "Не удалось сохранить копию: ${it.message ?: "ошибка записи"}") }
+        }
+    }
+
+    // Читает и проверяет файл, ничего не меняя в базе
+    fun readBackup(uri: Uri, onResult: (Result<BackupData>) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val stream = getApplication<Application>().contentResolver.openInputStream(uri)
+                        ?: throw BackupFormatException("Не удалось открыть файл")
+                    val text = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    BackupManager.fromJson(text)
+                }
+            }
+            onResult(result)
+        }
+    }
+
+    // Полностью заменяет текущие данные данными из копии
+    fun restoreBackup(data: BackupData, onResult: (success: Boolean, message: String) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    database.withTransaction {
+                        transactionDao.deleteAllTransactions()
+                        transactionDao.deleteAllSalaryConfigs()
+                        transactionDao.deleteAllProjects()
+                        transactionDao.insertTransactions(data.transactions)
+                        transactionDao.insertSalaryConfigs(data.salaryConfigs)
+                        transactionDao.insertProjects(data.projects)
+                    }
+                    with(data.settings) {
+                        appSettings.saveInitialSettings(defaultSalary, startMonth, startYear, historyDepth)
+                        appSettings.setThemeMode(themeMode)
+                    }
+                }
+            }
+            result
+                .onSuccess { onResult(true, "Данные восстановлены") }
+                .onFailure { onResult(false, "Не удалось восстановить: ${it.message ?: "ошибка базы данных"}") }
         }
     }
 }

@@ -7,7 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.salarytracker.ui.theme.isAppInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +51,7 @@ fun AnalyticsScreen(viewModel: SalaryViewModel = viewModel()) {
     val pendingProjects by viewModel.allPendingProjects.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val textMeasurer = rememberTextMeasurer()
 
     // Состояния для всплывающего диалога добавления проекта
